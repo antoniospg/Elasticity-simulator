@@ -44,7 +44,7 @@ int main()
   }
 
   Shader df("shaders/default.vert", "shaders/default.frag");
-  Model m("./tetra.obj");
+  Model m("./stanford-bunny.obj");
   glEnable(GL_DEPTH_TEST);
   glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
   
