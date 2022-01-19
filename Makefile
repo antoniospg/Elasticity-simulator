@@ -57,7 +57,7 @@ run: $(OBJ_RUN) $(CUDA_OBJ) $(CUDA_OBJ_FILES)
 	$(GPP) $(FLAGS) -o run $(INCLUDE) $^ $(LIBS) 
 
 # Compile C++ Source Files
-run-%.cpp.o: %.cpp
+run-%.cpp.o: %.cpp 
 	$(GPP) $(FLAGS) -c -o $@ $(INCLUDE) $< 
 
 # Compile CUDA Source Files
