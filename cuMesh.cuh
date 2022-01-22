@@ -2,18 +2,16 @@
 #define CU_MESH_CUH
 
 #include <array>
+#include <cmath>
 #include <map>
 #include <queue>
-#include <vector>
 #include <set>
-#include <cmath>
+#include <vector>
 using namespace std;
 
 class Chunks {
  public:
   array<vector<int2>, 4> colors;
-  map<int, vector<int>> get_links;
-  map<int, int> get_next_vertex;
   int3* indices_h;
   float3* vertices_h;
   int2* links_h;
@@ -34,14 +32,12 @@ class cuMesh {
   float3* vertices_h;
   int3* indices_h;
 
-  cuMesh(unsigned int VBO = 0, unsigned int EBO = 0);
-
+  cuMesh(unsigned int VBO, unsigned int EBO);
+  cuMesh();
+  ~cuMesh();
   void mapVBO(unsigned int VBO);
-
   void mapEBO(unsigned int EBO);
-
   void deleteVBO_CUDA();
-
   void callKernel();
 };
 

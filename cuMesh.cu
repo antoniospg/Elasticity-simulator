@@ -26,10 +26,9 @@ Chunks::Chunks(int3* indices_h, size_t n_i, float3* vertices_h, size_t n_v,
   int i_link = 0;
 
   // Calcular links e map de vertice em link
+  map<int, vector<int>> get_links;
+  map<int, int> get_next_vertex;
   for (size_t i = 0; i < n_i; i++) {
-
-    cout << indices_h[i].x << " " << indices_h[i].y << " " <<indices_h[i].z << endl; 
-    
     links_h[i_link] = {indices_h[i].x, indices_h[i].y};
     get_links[links_h[i_link].x].push_back(i_link);
     get_next_vertex[i_link] = links_h[i_link].y;
@@ -61,7 +60,6 @@ Chunks::Chunks(int3* indices_h, size_t n_i, float3* vertices_h, size_t n_v,
     visited.insert(curr);
 
     for (auto link : get_links[curr]) {
-      cout << "v: " << curr << " links " << get_links[curr].size()<< endl;
       count_links++;
       colors[first_color].push_back(links_h[link]);
       q_vertex.push(get_next_vertex[link]);
@@ -72,13 +70,16 @@ Chunks::Chunks(int3* indices_h, size_t n_i, float3* vertices_h, size_t n_v,
       }
     }
   }
-
 }
 
 cuMesh::cuMesh(unsigned int VBO, unsigned int EBO) {
-  // mapVBO(VBO);
-  // mapEBO(EBO);
+  mapVBO(VBO);
+  mapEBO(EBO);
 }
+
+cuMesh::cuMesh() {}
+
+cuMesh::~cuMesh() { deleteVBO_CUDA(); }
 
 void cuMesh::mapVBO(unsigned int VBO) {
   vertices_g = nullptr;

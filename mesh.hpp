@@ -47,6 +47,9 @@ class Mesh {
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void *)0);
     glBindVertexArray(0);
+
+    setupCuda();
+    cm.callKernel();
   }
 
   Mesh(std::vector<Vertex> vertices, std::vector<unsigned int> indices)
@@ -59,7 +62,6 @@ class Mesh {
   }
 
   void render(Shader &shader) {
-    setupCuda();
     glBindVertexArray(VAO);
     glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, 0);
     glBindVertexArray(0);
@@ -68,14 +70,12 @@ class Mesh {
   void setupCuda() {
     cm.mapVBO(VBO);
     cm.mapEBO(EBO);
-    cm.callKernel();
   }
 
   ~Mesh() {
     glDeleteVertexArrays(1, &VAO);
     glDeleteBuffers(1, &VBO);
     glDeleteBuffers(1, &EBO);
-    // cm.deleteVBO_CUDA();
   }
 };
 
