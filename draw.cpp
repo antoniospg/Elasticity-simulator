@@ -44,9 +44,10 @@ int main()
   }
 
   Shader df("shaders/default.vert", "shaders/default.frag");
-  Model m("./stanford-bunny.obj");
+  Model m("./icosahedron.obj");
   glEnable(GL_DEPTH_TEST);
   glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+  //glPolygonMode(GL_FRONT, GL_POLYGON);
   
   // render loop
   // -----------

@@ -9,18 +9,6 @@
 #include <vector>
 using namespace std;
 
-class Chunks {
- public:
-  array<vector<int2>, 4> colors;
-  int3* indices_h;
-  float3* vertices_h;
-  int2* links_h;
-  int n_l;
-
-  Chunks(int3* indices_h, size_t num_indices, float3* vertices_h,
-         size_t num_vertices, size_t block_size);
-};
-
 __global__ void deformVertices(float3* pos, int n);
 
 class cuMesh {
