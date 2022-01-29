@@ -6,6 +6,7 @@
 #include "ioUtils.hpp"
 #include "mesh.hpp"
 #include "model.hpp"
+#include "voxelLoader.hpp"
 
 #include <fstream>
 #include <string>
@@ -43,6 +44,7 @@ int main()
     return -1;
   }
 
+  VoxelLoader vm("stagbeetle.dat");
   Shader df("shaders/default.vert", "shaders/default.frag");
   Model m("./icosahedron.obj");
   glEnable(GL_DEPTH_TEST);

@@ -36,52 +36,31 @@ class Chunks {
 
     // Calcular links e map de vertice em link
     map<int, vector<int>> get_links;
-    map<int, int> get_next_vertex;
 
     // Less function for int2
     auto comp_int2 = [](int2 a, int2 b) {
-      return (a.x == b.x) ? (a.y < b.y) : (a.x < b.x);
+      int max_a = max(a.x, a.y), min_a = min(a.x, a.y);
+      int max_b = max(b.x, b.y), min_b = min(b.x, b.y);
+      return (min_a == min_b) ? max_a < max_b : min_a < min_b;
     };
     set<int2, decltype(comp_int2)> links_visited(comp_int2);
 
     for (size_t i = 0; i < n_i; i++) {
       // Check if halfedge or opposite halfedge were already visited
-      int2 hf;
+      int2 hf_face[3] = {{indices_h[i].x, indices_h[i].y},
+                         {indices_h[i].y, indices_h[i].z},
+                         {indices_h[i].z, indices_h[i].x}};
 
-      hf = {indices_h[i].x, indices_h[i].y};
-      if (links_visited.find(hf) == links_visited.end() &&
-          links_visited.find(int2{hf.y, hf.x}) == links_visited.end()) {
-        links_h.push_back(hf);
-        get_links[hf.x].push_back(links_h.size() - 1);
-        get_links[hf.y].push_back(links_h.size() - 1);
-        get_next_vertex[links_h.size() - 1] = hf.y;
+      for (size_t j = 0; j < 3; j++) {
+        int2 hf = hf_face[j];
 
-        links_visited.insert(hf);
-        links_visited.insert(int2{hf.y, hf.x});
-      }
+        if (links_visited.find(hf) == links_visited.end()) {
+          links_h.push_back(hf);
+          get_links[hf.x].push_back(links_h.size() - 1);
+          get_links[hf.y].push_back(links_h.size() - 1);
 
-      hf = {indices_h[i].y, indices_h[i].z};
-      if (links_visited.find(hf) == links_visited.end() &&
-          links_visited.find(int2{hf.y, hf.x}) == links_visited.end()) {
-        links_h.push_back(hf);
-        get_links[hf.x].push_back(links_h.size() - 1);
-        get_links[hf.y].push_back(links_h.size() - 1);
-        get_next_vertex[links_h.size() - 1] = hf.y;
-
-        links_visited.insert(hf);
-        links_visited.insert(int2{hf.y, hf.x});
-      }
-
-      hf = {indices_h[i].z, indices_h[i].x};
-      if (links_visited.find(hf) == links_visited.end() &&
-          links_visited.find(int2{hf.y, hf.x}) == links_visited.end()) {
-        links_h.push_back(hf);
-        get_links[hf.x].push_back(links_h.size() - 1);
-        get_links[hf.y].push_back(links_h.size() - 1);
-        get_next_vertex[links_h.size() - 1] = hf.y;
-
-        links_visited.insert(hf);
-        links_visited.insert(int2{hf.y, hf.x});
+          links_visited.insert(hf);
+        }
       }
     }
 
@@ -109,19 +88,19 @@ class Chunks {
       vertices_visited.insert(curr);
 
       for (auto link : get_links[curr]) {
-        if (links_visited.find(links_h[link]) != links_visited.end() || links_visited.find(int2{links_h[link].y, links_h[link].x}) != links_visited.end()) continue;
+        if (links_visited.find(links_h[link]) != links_visited.end()) continue;
         links_visited.insert(links_h[link]);
 
         count_links++;
         colors[first_color].push_back(links_h[link]);
-        q_vertex.push(get_next_vertex[link]);
+
+        if (curr == links_h[link].x) q_vertex.push(links_h[link].y);
+        if (curr == links_h[link].y) q_vertex.push(links_h[link].x);
 
         // Debug : atribuir cor nos vertices
         if (first_color == 1) {
           vertices[links_h[link].x].color = visual_colors[land];
           vertices[links_h[link].y].color = visual_colors[land];
-
-          std::cout << links_h[link].x << std::endl;
         }
 
         if (count_links == block_size) {
@@ -162,7 +141,7 @@ class Mesh {
     cpVertexPos();
 
     Chunks ch((int3 *)indices.data(), indices.size() / 3, vertices_h.data(),
-              vertices_h.size(), 2, vertices);
+              vertices_h.size(), 5, vertices);
 
     glGenVertexArrays(1, &VAO);
     glGenBuffers(1, &VBO);
