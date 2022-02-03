@@ -16,9 +16,8 @@ class VoxelLoader {
 
   VoxelLoader(string path) {
     FILE* fp = fopen(path.c_str(), "rb");
-    assert(fp != nullptr);
 
-    unsigned short vuSize[3];
+    unsigned short* vuSize[3];
     fread((void*)vuSize, 3, sizeof(unsigned short), fp);
 
     n_x = int(vuSize[0]);
