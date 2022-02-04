@@ -1,5 +1,3 @@
-#include <stdio.h>
-
 #include "computeTex.cuh"
 
 ComputeTex ::ComputeTex(int *h_data, int nx, int ny, int nz) {
