@@ -8,20 +8,6 @@ using namespace std;
 
 #define WP_SIZE 32
 
-__device__ __inline__ int2 minMaxMC(cudaTextureObject_t tex, int3 init) {
-  int2 min_max = {1e9, 0};
-#pragma unroll
-  for (int i = 0; i < 2; i++)
-    for (int j = 0; j < 2; j++)
-      for (int k = 0; k < 2; k++)
-        min_max = {
-            min(min_max.x, tex3D<int>(tex, init.x + i, init.y + j, init.z + k)),
-            max(min_max.y,
-                tex3D<int>(tex, init.x + i, init.y + j, init.z + k))};
-
-  return min_max;
-}
-
 __device__ __inline__ int2 warpReduceMinMax(int2 val) {
 #pragma unroll
   for (int offset = WP_SIZE / 2; offset > 0; offset /= 2) {
@@ -49,7 +35,9 @@ __global__ void blockReduceMinMax(cudaTextureObject_t tex, int n, int2* g_ans) {
 
   __shared__ int2 warpAns[32];
 
-  int2 val = minMaxMC(tex, pos);
+  int2 val = {tex3D<int>(tex, pos.x, pos.y, pos.z),
+              tex3D<int>(tex, pos.x, pos.y, pos.z)};
+
   val = warpReduceMinMax(val);
 
   if (lane == 0) warpAns[wid] = val;

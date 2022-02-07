@@ -1,3 +1,5 @@
+#include <stdio.h>
+
 #include "getActiveBlocks.cuh"
 
 #define WP_SIZE 32
