@@ -7,6 +7,8 @@
 #include "getActiveBlocks.cuh"
 #include "minMaxReduction.cuh"
 
+#define WP_SIZE 32
+
 __device__ __inline__ float3 interpolate3(uint3 pos1, uint3 pos2, int w1,
                                           int w2) {
   return float3{(float)(pos1.x * w1 + pos2.x * w2) / (w1 + w2),
@@ -14,7 +16,7 @@ __device__ __inline__ float3 interpolate3(uint3 pos1, uint3 pos2, int w1,
                 (float)(pos1.z * w1 + pos2.z * w2) / (w1 + w2)};
 }
 
-__device__ void sampleVolume(uint3 pos, volatile int* shem,
+__device__ int3 sampleVolume(uint3 pos, volatile int* shem,
                              cudaTextureObject_t tex, float3* vertices) {
   int tid_block = threadIdx.x + blockDim.x * threadIdx.y +
                   blockDim.x * blockDim.y * threadIdx.z;
@@ -27,16 +29,22 @@ __device__ void sampleVolume(uint3 pos, volatile int* shem,
                     threadIdx.x + blockDim.x * threadIdx.y +
                         blockDim.x * blockDim.y * (threadIdx.z + 1)};
 
+  bool bound_condition[3] = {threadIdx.x + 1 < blockDim.x,
+                             threadIdx.y + 1 < blockDim.x,
+                             threadIdx.z + 1 < blockDim.x};
+
   uint3 next_vertices[3] = {uint3{pos.x + 1, pos.y, pos.z},
                             uint3{pos.x, pos.y + 1, pos.z},
                             uint3{pos.x, pos.y, pos.z + 1}};
 
   int next_voxels[3] = {0, 0, 0};
+  int num_vertices = 0;
+  int3 indices = int3{0, 0, 0};
 
-#pragma unroll
   // Check if vertex its out of boundaries
+#pragma unroll
   for (size_t i = 0; i < 3; i++) {
-    if (offsets[i] < blockDim.x * blockDim.y * blockDim.z)
+    if (bound_condition[i])
       next_voxels[i] = shem[offsets[i]];
     else
       next_voxels[i] = tex3D<int>(tex, next_vertices[i].x, next_vertices[i].y,
@@ -44,9 +52,20 @@ __device__ void sampleVolume(uint3 pos, volatile int* shem,
   }
 
 #pragma unroll
-  for (size_t i = 0; i < 3; i++)
-    vertices[i] =
-        interpolate3(pos, next_vertices[i], shem[tid_block], next_voxels[i]);
+  for (size_t i = 0; i < 3; i++) {
+    int w1 = shem[tid_block];
+    int w2 = next_voxels[i];
+    if (w1 == 0 && w2 == 0) continue;
+
+    vertices[i] = interpolate3(pos, next_vertices[i], w1, w2);
+    num_vertices++;
+  }
+
+  if (num_vertices == 1) indices.x = 1, indices.y = 0, indices.z = 0;
+  if (num_vertices == 2) indices.x = 1, indices.y = 1, indices.z = 0;
+  if (num_vertices == 3) indices.x = 1, indices.y = 1, indices.z = 1;
+
+  return indices;
 }
 
 __global__ void generateTris(cudaTextureObject_t tex, int* activeBlocks,
@@ -55,6 +74,8 @@ __global__ void generateTris(cudaTextureObject_t tex, int* activeBlocks,
   int block_id = activeBlocks[blockIdx.x];
   int tid_block = threadIdx.x + blockDim.x * threadIdx.y +
                   blockDim.x * blockDim.y * threadIdx.z;
+  int wid = tid_block / WP_SIZE;
+  int lane = tid_block % WP_SIZE;
 
   int3 block_pos =
       int3{block_id % 16, (block_id / 16) % (16 * 16), block_id / (16 * 16)};
@@ -66,15 +87,11 @@ __global__ void generateTris(cudaTextureObject_t tex, int* activeBlocks,
   voxels[tid_block] = tex3D<int>(tex, pos.x, pos.y, pos.z);
   __syncthreads();
 
-  float3* vertices;
-  vertices = new float3[3];
-  sampleVolume(pos, voxels, tex, vertices);
+  float3* vertices = new float3[3];
 
-  printf(
-      "pos : %d %d %d : \n %f %f %f,  %f %f %f,  %f %f %f \n $$$$$$$$$$$$ \n",
-      pos.x, pos.y, pos.z, vertices[0].x, vertices[0].y, vertices[0].z,
-      vertices[1].x, vertices[1].y, vertices[1].z, vertices[2].x, vertices[2].y,
-      vertices[2].z);
+  int3 indices = sampleVolume(pos, voxels, tex, vertices);
+
+  if (indices.x != 0) printf("%d %d %d \n", indices.x, indices.y, indices.z);
 }
 
 using namespace std;
@@ -82,7 +99,6 @@ using namespace std;
 int main() {
   int num_points_x = 128, num_points_y = 128, num_points_z = 128;
   int num_points = num_points_x * num_points_y * num_points_z;
-
   int* h_data = new int[num_points];
 
   int off_x[2] = {1, 0}, off_y[2] = {1, 0}, off_z[2] = {1, 0};
