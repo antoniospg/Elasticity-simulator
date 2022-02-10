@@ -90,8 +90,6 @@ __global__ void generateTris(cudaTextureObject_t tex, int* activeBlocks,
   float3* vertices = new float3[3];
 
   int3 indices = sampleVolume(pos, voxels, tex, vertices);
-
-  if (indices.x != 0) printf("%d %d %d \n", indices.x, indices.y, indices.z);
 }
 
 using namespace std;
@@ -155,6 +153,9 @@ int main() {
   dim3 block_size3 = block_size;
   int num_blocks3 = block_size3.x * block_size.y + block_size.z;
   dim3 grid_size3 = {numActiveBlk};
+
+  int* g_vertex_offset;
+  cudaMalloc(&g_vertex_offset, 3 * n_x * n_y * n_z * sizeof(int));
 
   generateTris<<<grid_size3, block_size3>>>(ct.texObj, g_h_activeBlkNum,
                                             d_numActiveBlk);
