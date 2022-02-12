@@ -11,8 +11,8 @@ using namespace std;
 __device__ __inline__ int2 warpReduceMinMax(int2 val) {
 #pragma unroll
   for (int offset = WP_SIZE / 2; offset > 0; offset /= 2) {
-    val.x = min(val.x, __shfl_down_sync(-1, val.x, offset));
-    val.y = max(val.y, __shfl_down_sync(-1, val.y, offset));
+    val.x = min(val.x, __shfl_down_sync(0xffffffff, val.x, offset));
+    val.y = max(val.y, __shfl_down_sync(0xffffffff, val.y, offset));
   }
   return val;
 }
@@ -29,14 +29,14 @@ __global__ void blockReduceMinMax(cudaTextureObject_t tex, int n, int2* g_ans) {
   int lane = tid_block % WP_SIZE;
   int wid = tid_block / WP_SIZE;
 
-  int3 pos = {blockDim.x * blockIdx.x + threadIdx.x,
-              blockDim.y * blockIdx.y + threadIdx.y,
-              blockDim.z * blockIdx.z + threadIdx.z};
+  uint3 pos = {blockDim.x * blockIdx.x + threadIdx.x,
+               blockDim.y * blockIdx.y + (threadIdx.y + 1),
+               blockDim.z * blockIdx.z + threadIdx.z};
 
   __shared__ int2 warpAns[32];
 
-  int2 val = {tex3D<int>(tex, pos.x, pos.y, pos.z),
-              tex3D<int>(tex, pos.x, pos.y, pos.z)};
+  int2 val = int2{tex3D<int>(tex, pos.x, pos.y, pos.z),
+                  tex3D<int>(tex, pos.x, pos.y, pos.z)};
 
   val = warpReduceMinMax(val);
 

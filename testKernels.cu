@@ -5,9 +5,15 @@
 #include "computeTex.cuh"
 #include "errorHandling.cuh"
 #include "getActiveBlocks.cuh"
+#include "lookUpTables.h"
 #include "minMaxReduction.cuh"
 
 #define WP_SIZE 32
+typedef uchar3 bool3;
+
+__constant__ int d_edgeTable[256];
+__constant__ int d_triTable[256][16];
+__constant__ int d_neighbourMappingTable[12][4];
 
 __device__ __inline__ float3 interpolate3(uint3 pos1, uint3 pos2, int w1,
                                           int w2) {
@@ -16,18 +22,18 @@ __device__ __inline__ float3 interpolate3(uint3 pos1, uint3 pos2, int w1,
                 (float)(pos1.z * w1 + pos2.z * w2) / (w1 + w2)};
 }
 
-__device__ int3 sampleVolume(uint3 pos, volatile int* shem,
-                             cudaTextureObject_t tex, float3* vertices) {
+__device__ int3 sampleVolume_old(uint3 pos, volatile int* shem,
+                                 cudaTextureObject_t tex, float3* vertices) {
   int tid_block = threadIdx.x + blockDim.x * threadIdx.y +
                   blockDim.x * blockDim.y * threadIdx.z;
 
   // Neighbours in each direction
-  int offsets[3] = {(threadIdx.x + 1) + blockDim.x * threadIdx.y +
-                        blockDim.x * blockDim.y * threadIdx.z,
-                    threadIdx.x + blockDim.x * (threadIdx.y + 1) +
-                        blockDim.x * blockDim.y * threadIdx.z,
-                    threadIdx.x + blockDim.x * threadIdx.y +
-                        blockDim.x * blockDim.y * (threadIdx.z + 1)};
+  uint offsets[3] = {(threadIdx.x + 1) + blockDim.x * threadIdx.y +
+                         blockDim.x * blockDim.y * threadIdx.z,
+                     threadIdx.x + blockDim.x * (threadIdx.y + 1) +
+                         blockDim.x * blockDim.y * threadIdx.z,
+                     threadIdx.x + blockDim.x * threadIdx.y +
+                         blockDim.x * blockDim.y * (threadIdx.z + 1)};
 
   bool bound_condition[3] = {threadIdx.x + 1 < blockDim.x,
                              threadIdx.y + 1 < blockDim.x,
@@ -68,9 +74,50 @@ __device__ int3 sampleVolume(uint3 pos, volatile int* shem,
   return indices;
 }
 
+__device__ bool3 get_active_edges(uint3 pos, volatile int* shem) {
+  int tid_block = threadIdx.x + blockDim.x * threadIdx.y +
+                  blockDim.x * blockDim.y * threadIdx.z;
+  // Neighbours in each direction
+  uint offsets[3] = {(threadIdx.x + 1) + blockDim.x * threadIdx.y +
+                         blockDim.x * blockDim.y * threadIdx.z,
+                     threadIdx.x + blockDim.x * (threadIdx.y - 1) +
+                         blockDim.x * blockDim.y * threadIdx.z,
+                     threadIdx.x + blockDim.x * threadIdx.y +
+                         blockDim.x * blockDim.y * (threadIdx.z + 1)};
+
+  bool xyz_edges[3] = {0, 0, 0};
+
+#pragma unroll
+  for (size_t i = 0; i < 3; i++) {
+    if (shem[tid_block] == 0 || offsets[i] < 0 ||
+        offsets[i] > blockDim.x * blockDim.y * blockDim.z)
+      xyz_edges[i] = false;
+    else
+      xyz_edges[i] = shem[offsets[i]] != 0;
+  }
+
+  return bool3{xyz_edges[0], xyz_edges[1], xyz_edges[2]};
+}
+
+__device__ __inline__ bool get_neighbor_mapping(int edge,
+                                                volatile bool3* shem) {
+  int edge_offset[4] = {
+      d_neighbourMappingTable[edge][0], d_neighbourMappingTable[edge][2],
+      d_neighbourMappingTable[edge][1], d_neighbourMappingTable[edge][3]};
+
+  int shem_offset = (threadIdx.x + edge_offset[0]) +
+                    blockDim.x * (threadIdx.y + edge_offset[1]) +
+                    blockDim.x * blockDim.y * (threadIdx.z + edge_offset[2]);
+
+  if (edge_offset[3] == 0) return shem[shem_offset].x;
+  if (edge_offset[3] == 1) return shem[shem_offset].y;
+  if (edge_offset[3] == 2) return shem[shem_offset].z;
+  return -1;
+}
+
 __global__ void generateTris(cudaTextureObject_t tex, int* activeBlocks,
                              int* numActiveBlocks) {
-  int numBlk = *numActiveBlocks;
+  uint numBlk = *numActiveBlocks;
   int block_id = activeBlocks[blockIdx.x];
   int tid_block = threadIdx.x + blockDim.x * threadIdx.y +
                   blockDim.x * blockDim.y * threadIdx.z;
@@ -80,16 +127,23 @@ __global__ void generateTris(cudaTextureObject_t tex, int* activeBlocks,
   int3 block_pos =
       int3{block_id % 16, (block_id / 16) % (16 * 16), block_id / (16 * 16)};
   uint3 pos = uint3{threadIdx.x + block_pos.x * blockDim.x,
-                    threadIdx.y + block_pos.y * blockDim.y,
+                    threadIdx.y + block_pos.y * blockDim.y + 1,
                     threadIdx.z + block_pos.z * blockDim.z};
 
+  // Multi use shem to store voxel values
   __shared__ int voxels[1024];
   voxels[tid_block] = tex3D<int>(tex, pos.x, pos.y, pos.z);
   __syncthreads();
 
-  float3* vertices = new float3[3];
+  bool3 xyz_edges = get_active_edges(pos, voxels);
+  if (xyz_edges.x > 0 || xyz_edges.y > 0 || xyz_edges.z > 0)
+    printf("%d %d %d ,,,,, %d %d %d \n", pos.x, pos.y, pos.z, xyz_edges.x,
+           xyz_edges.y, xyz_edges.z);
 
-  int3 indices = sampleVolume(pos, voxels, tex, vertices);
+  __shared__ bool3 activeEdges[1024];
+  activeEdges[tid_block] = xyz_edges;
+  __syncthreads();
+
 }
 
 using namespace std;
@@ -107,7 +161,11 @@ int main() {
       for (int j = 0; j < 2; j++)
         for (int k = 0; k < 2; k++)
           h_data[(x0 + off_x[i]) + num_points_x * (off_y[j]) +
-                 num_points_x * num_points_y * (off_z[k])] = x0 + 20;
+                 num_points_x * num_points_y * (off_z[k])] = x0 + 1;
+
+  cudaMemcpyToSymbol(d_edgeTable, edgeTable, 256 * sizeof(int));
+  cudaMemcpyToSymbol(d_triTable, edgeTable, 256 * 16 * sizeof(int));
+  cudaMemcpyToSymbol(d_neighbourMappingTable, edgeTable, 12 * 4 * sizeof(int));
 
   ComputeTex ct(h_data, num_points_x, num_points_y, num_points_z);
 
@@ -134,6 +192,13 @@ int main() {
 
   blockReduceMinMax<<<grid_size, block_size>>>(ct.texObj, n, g_blockMinMax);
 
+  cudaMemcpy(h_blockMinMax, g_blockMinMax, num_blocks * sizeof(int2),
+             cudaMemcpyDeviceToHost);
+
+  for (int i = 0; i < num_blocks; i++) {
+    if (h_blockMinMax[i].x != 0) cout << h_blockMinMax[i].x << endl;
+  }
+
   int block_size2 = 128;
   int grid_size2 = (num_blocks + block_size2 - 1) / block_size2;
   getActiveBlocks<<<grid_size2, block_size2>>>(
@@ -143,11 +208,8 @@ int main() {
 
   cudaDeviceSynchronize();
 
-  int numActiveBlk = 0;
+  uint numActiveBlk = 0;
   cudaMemcpy(&numActiveBlk, g_numActiveBlocks + block_size2 - 1, sizeof(int),
-             cudaMemcpyDeviceToHost);
-
-  cudaMemcpy(h_blockMinMax, g_blockMinMax, num_blocks * sizeof(int2),
              cudaMemcpyDeviceToHost);
 
   dim3 block_size3 = block_size;
