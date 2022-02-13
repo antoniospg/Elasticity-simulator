@@ -2,8 +2,12 @@
 CUDA_OBJ = cuda.o
 
 # Input Names
+IMGUI_DIR = imgui
+
 CUDA_FILES = cuMesh.cu
 CPP_FILES = draw.cpp
+CPP_FILES += $(IMGUI_DIR)/imgui.cpp $(IMGUI_DIR)/imgui_demo.cpp $(IMGUI_DIR)/imgui_draw.cpp $(IMGUI_DIR)/imgui_tables.cpp $(IMGUI_DIR)/imgui_widgets.cpp
+CPP_FILES += $(IMGUI_DIR)/backends/imgui_impl_glfw.cpp $(IMGUI_DIR)/backends/imgui_impl_opengl3.cpp
 
 # ------------------------------------------------------------------------------
 
@@ -40,7 +44,7 @@ CUDA_LINK_FLAGS = -dlink -Wno-deprecated-gpu-targets
 # C++ Compiler and Flags
 GPP = g++
 FLAGS = -g -Wall -D_REENTRANT -std=c++0x -pthread
-INCLUDE = -I$(CUDA_INC_PATH)
+INCLUDE = -I$(CUDA_INC_PATH) -I$(IMGUI_DIR) -I$(IMGUI_DIR)/backends
 LIBS = -L$(CUDA_LIB_PATH) -lcudart glad.so libassimp.so -lGL -lGLU -lGLEW -lglfw -lm -ldl
 
 # ------------------------------------------------------------------------------
@@ -57,8 +61,14 @@ run: $(OBJ_RUN) $(CUDA_OBJ) $(CUDA_OBJ_FILES)
 	$(GPP) $(FLAGS) -o run $(INCLUDE) $^ $(LIBS) 
 
 # Compile C++ Source Files
-run-%.cpp.o: %.cpp 
+run-%.cpp.o: %.cpp  
 	$(GPP) $(FLAGS) -c -o $@ $(INCLUDE) $< 
+
+run-%.cpp.o:$(IMGUI_DIR)/%.cpp
+	$(GPP) $(FLAGS) -c -o $@ $(INCLUDE) $<
+
+run-%.cpp.o:$(IMGUI_DIR)/backends/%.cpp
+	$(GPP) $(FLAGS) -c -o $@ $(INCLUDE) $<
 
 # Compile CUDA Source Files
 %.cu.o: %.cu

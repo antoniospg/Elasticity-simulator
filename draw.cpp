@@ -1,24 +1,28 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
-#include <glm/ext.hpp>
+#include <glad/glad.h>
 
-#include "shader.hpp"
+#include <algorithm>
+#include <cmath>
+#include <fstream>
+#include <glm/ext.hpp>
+#include <iostream>
+#include <sstream>
+#include <string>
+
+#include "imgui.h"
+#include "imgui_impl_glfw.h"
+#include "imgui_impl_opengl3.h"
 #include "ioUtils.hpp"
 #include "mesh.hpp"
 #include "model.hpp"
+#include "shader.hpp"
 #include "voxelLoader.hpp"
 
-#include <fstream>
-#include <string>
-#include <sstream>
-#include <iostream>
-#include <cmath>
-#include <algorithm>
-
-int main()
-{
+int main() {
   float h = 1200;
-  
+  const char *glsl_version = "#version 130";
+
   // glfw: initialize and configure
   // ------------------------------
   glfwInit();
@@ -44,24 +48,34 @@ int main()
     return -1;
   }
 
+  // Setup Dear ImGui context
+  IMGUI_CHECKVERSION();
+  ImGui::CreateContext();
+  ImGuiIO& io = ImGui::GetIO();
+  // Setup Platform/Renderer bindings
+  ImGui_ImplGlfw_InitForOpenGL(window, true);
+  ImGui_ImplOpenGL3_Init(glsl_version);
+  // Setup Dear ImGui style
+  ImGui::StyleColorsDark();
+
   VoxelLoader vm("sphere.dat");
   Shader df("shaders/default.vert", "shaders/default.frag");
   Model m("./icosahedron.obj");
   glEnable(GL_DEPTH_TEST);
   glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-  //glPolygonMode(GL_FRONT, GL_POLYGON);
-  
+  // glPolygonMode(GL_FRONT, GL_POLYGON);
+
   // render loop
   // -----------
-  double xpos = h/2, ypos = h/2;
+  double xpos = h / 2, ypos = h / 2;
   double xpos0 = xpos, ypos0 = ypos;
   bool leftClick = false;
   bool rightClick = false;
   glm::vec3 camPos(0.0f, 0.0f, 1400.0f);
   float timeVal = glfwGetTime();
 
-  glm::mat4 proj = glm::ortho(-h/2, h/2, -h/2, h/2, 0.0f, 10*1200.0f);
-  glm::mat4 view = glm::translate(glm::mat4(1.0f), -camPos); 
+  glm::mat4 proj = glm::ortho(-h / 2, h / 2, -h / 2, h / 2, 0.0f, 10 * 1200.0f);
+  glm::mat4 view = glm::translate(glm::mat4(1.0f), -camPos);
   glm::mat4 model = glm::scale(glm::mat4(1.0f), glm::vec3(3000.0f));
 
   float scale = 1.0f;
@@ -79,17 +93,32 @@ int main()
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+    // feed inputs to dear imgui, start new frame
+    ImGui_ImplOpenGL3_NewFrame();
+    ImGui_ImplGlfw_NewFrame();
+    ImGui::NewFrame();
+
+    // render your GUI
+    ImGui::Begin("Demo window");
+    ImGui::Button("Hello!");
+    ImGui::End();
+
+    // Render dear imgui into screen
+    ImGui::Render();
+    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+
     // update shader uniform
     glfwGetCursorPos(window, &xpos, &ypos);
     if (leftClick) {
-      float u1 = (xpos - xpos0)*0.1f;
-      float u2 = (ypos - ypos0)*0.1f;
-      glm::mat4 y_rot = glm::rotate(glm::mat4(1.0f), glm::radians(u2), glm::vec3(1.0f, 0.0f, 0.0f));
-      glm::mat4 x_rot = glm::rotate(glm::mat4(1.0f), glm::radians(u1), glm::vec3(0.0f, 1.0f, 0.0f));
-      model = y_rot*x_rot*model;
-    }
-    else if (rightClick) {
-      float u1 = (ypos - ypos0)*0.01f;
+      float u1 = (xpos - xpos0) * 0.1f;
+      float u2 = (ypos - ypos0) * 0.1f;
+      glm::mat4 y_rot = glm::rotate(glm::mat4(1.0f), glm::radians(u2),
+                                    glm::vec3(1.0f, 0.0f, 0.0f));
+      glm::mat4 x_rot = glm::rotate(glm::mat4(1.0f), glm::radians(u1),
+                                    glm::vec3(0.0f, 1.0f, 0.0f));
+      model = y_rot * x_rot * model;
+    } else if (rightClick) {
+      float u1 = (ypos - ypos0) * 0.01f;
       u1 = std::max(0.0f, 1.0f + u1);
       view = glm::scale(view, glm::vec3(u1, u1, u1));
     }
@@ -100,10 +129,11 @@ int main()
     df.setMat4("proj", proj);
     df.setMat4("view", view);
     df.setMat4("model", model);
-   
+
     m.render(df);
 
-    // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
+    // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved
+    // etc.)
     // -------------------------------------------------------------------------------
     glfwSwapBuffers(window);
     glfwPollEvents();
@@ -112,5 +142,9 @@ int main()
   // glfw: terminate, clearing all previously allocated GLFW resources.
   // ------------------------------------------------------------------
   glfwTerminate();
+
+  ImGui_ImplOpenGL3_Shutdown();
+  ImGui_ImplGlfw_Shutdown();
+  ImGui::DestroyContext(); 
   return 0;
 }
