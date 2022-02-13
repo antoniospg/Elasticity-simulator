@@ -1,4 +1,4 @@
-#ifndef COMPUTETEX_CUH 
+#ifndef COMPUTETEX_CUH
 #define COMPUTETEX_CUH
 
 class ComputeTex {

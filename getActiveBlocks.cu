@@ -1,9 +1,7 @@
 #include <stdio.h>
 
+#include "constants.h"
 #include "getActiveBlocks.cuh"
-#include "lookUpTables.h"
-
-#define WP_SIZE 32
 
 __device__ __inline__ int warpReduceScan(int val, int laneid) {
 #pragma unroll
@@ -24,11 +22,11 @@ __global__ void getActiveBlocks(int2* g_blockMinMax, int n, int* g_ans,
 
   __shared__ int bTestPerWarp[32];
 
-  bool non_empty_block =
-      !(g_blockMinMax[tid].x != 0 & g_blockMinMax[tid].y != 0);
-
   // bool non_empty_block =
-  //     (g_blockMinMax[tid].x < ISO_VAL & g_blockMinMax[tid].y >= ISO_VAL);
+  //    !(g_blockMinMax[tid].x != 0 & g_blockMinMax[tid].y != 0);
+
+  bool non_empty_block =
+      (g_blockMinMax[tid].x < ISO_VAL & g_blockMinMax[tid].y >= ISO_VAL);
 
   int bTest = non_empty_block;
   bTest = warpReduceScan(bTest, lane);

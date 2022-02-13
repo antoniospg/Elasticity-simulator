@@ -3,10 +3,11 @@
 #include <iostream>
 
 #include "computeTex.cuh"
+#include "constants.h"
 #include "errorHandling.cuh"
 #include "getActiveBlocks.cuh"
-#include "lookUpTables.h"
 #include "minMaxReduction.cuh"
+#include "voxelLoader.hpp"
 
 #define WP_SIZE 32
 typedef uchar3 bool3;
@@ -143,34 +144,20 @@ __global__ void generateTris(cudaTextureObject_t tex, int* activeBlocks,
   __shared__ bool3 activeEdges[1024];
   activeEdges[tid_block] = xyz_edges;
   __syncthreads();
-
 }
 
 using namespace std;
 
 int main() {
-  int num_points_x = 128, num_points_y = 128, num_points_z = 128;
-  int num_points = num_points_x * num_points_y * num_points_z;
-  int* h_data = new int[num_points];
-
-  int off_x[2] = {1, 0}, off_y[2] = {1, 0}, off_z[2] = {1, 0};
-  int non_empty_cubes[6] = {0, 8, 16, 32};
-
-  for (int x0 : non_empty_cubes)
-    for (int i = 0; i < 2; i++)
-      for (int j = 0; j < 2; j++)
-        for (int k = 0; k < 2; k++)
-          h_data[(x0 + off_x[i]) + num_points_x * (off_y[j]) +
-                 num_points_x * num_points_y * (off_z[k])] = x0 + 1;
+  VoxelLoader vl("sphere.dat");
 
   cudaMemcpyToSymbol(d_edgeTable, edgeTable, 256 * sizeof(int));
   cudaMemcpyToSymbol(d_triTable, edgeTable, 256 * 16 * sizeof(int));
   cudaMemcpyToSymbol(d_neighbourMappingTable, edgeTable, 12 * 4 * sizeof(int));
 
-  ComputeTex ct(h_data, num_points_x, num_points_y, num_points_z);
+  ComputeTex ct(vl.pData, vl.n_x, vl.n_y, vl.n_z);
 
-  int n_x = (num_points_x - 1), n_y = (num_points_y - 1),
-      n_z = (num_points_y - 1);
+  int n_x = vl.n_x, n_y = vl.n_y, n_z = vl.n_z;
   int n = n_x * n_y * n_z;
 
   dim3 block_size = {8, 8, 8};
@@ -196,8 +183,10 @@ int main() {
              cudaMemcpyDeviceToHost);
 
   for (int i = 0; i < num_blocks; i++) {
-    if (h_blockMinMax[i].x != 0) cout << h_blockMinMax[i].x << endl;
+    cout << "min : " << h_blockMinMax[i].x << " max : " << h_blockMinMax[i].y
+         << endl;
   }
+  cout << "$$$$$$$$$$$\n";
 
   int block_size2 = 128;
   int grid_size2 = (num_blocks + block_size2 - 1) / block_size2;

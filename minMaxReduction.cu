@@ -30,7 +30,7 @@ __global__ void blockReduceMinMax(cudaTextureObject_t tex, int n, int2* g_ans) {
   int wid = tid_block / WP_SIZE;
 
   uint3 pos = {blockDim.x * blockIdx.x + threadIdx.x,
-               blockDim.y * blockIdx.y + (threadIdx.y + 1),
+               blockDim.y * blockIdx.y + threadIdx.y,
                blockDim.z * blockIdx.z + threadIdx.z};
 
   __shared__ int2 warpAns[32];

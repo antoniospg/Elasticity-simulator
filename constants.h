@@ -1,4 +1,10 @@
-#define ISO_VAL 2048
+#ifndef CONSTANTS_H
+#define CONSTANTS_H
+
+#define ISO_VAL 100
+#define WP_SIZE 32
+
+typedef unsigned short int usint;
 
 const int edgeTable[256] = {
     0x0,   0x109, 0x203, 0x30a, 0x406, 0x50f, 0x605, 0x70c, 0x80c, 0x905, 0xa0f,
@@ -288,3 +294,6 @@ const int neighborMappingTable[12][4] = {
     {0, 0, 0, 0}, {1, 0, 0, 1}, {0, 1, 0, 0}, {0, 0, 0, 1},
     {0, 0, 1, 0}, {1, 0, 1, 1}, {0, 1, 1, 0}, {0, 0, 1, 1},
     {0, 0, 0, 2}, {1, 0, 0, 2}, {1, 1, 0, 2}, {0, 1, 0, 2}};
+
+#endif
+
