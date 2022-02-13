@@ -9,24 +9,26 @@
 
 using namespace std;
 
+typedef unsigned short usint;
+
 class VoxelLoader {
  public:
   unsigned short int* pData;
-  int n_x, n_y, n_z;
+  usint n_x, n_y, n_z;
 
   VoxelLoader(string path) {
     FILE* fp = fopen(path.c_str(), "rb");
 
-    unsigned short* vuSize[3];
-    fread((void*)vuSize, 3, sizeof(unsigned short), fp);
+    unsigned short vuSize[3];
+    fread((void*)vuSize, 3, sizeof(usint), fp);
 
-    n_x = int(vuSize[0]);
-    n_y = int(vuSize[1]);
-    n_z = int(vuSize[2]);
+    n_x = vuSize[0];
+    n_y = vuSize[1];
+    n_z = vuSize[2];
 
-    int uCount = int(vuSize[0]) * int(vuSize[1]) * int(vuSize[2]);
-    pData = new unsigned short[uCount];
-    fread((void*)pData, uCount, sizeof(unsigned short), fp);
+    usint uCount = vuSize[0] * vuSize[1] * vuSize[2];
+    pData = new usint[uCount];
+    fread((void*)pData, uCount, sizeof(usint), fp);
     fclose(fp);
   }
 };

@@ -44,7 +44,7 @@ int main()
     return -1;
   }
 
-  VoxelLoader vm("stagbeetle.dat");
+  VoxelLoader vm("sphere.dat");
   Shader df("shaders/default.vert", "shaders/default.frag");
   Model m("./icosahedron.obj");
   glEnable(GL_DEPTH_TEST);
