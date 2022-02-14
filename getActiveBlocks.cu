@@ -54,3 +54,11 @@ __global__ void getActiveBlocks(int2* g_blockMinMax, int n, int* g_ans,
   bTest += numActiveBlocks[bid];
   if (non_empty_block) g_ans[bTest - 1] = tid;
 }
+
+void getActiveBlocksWrapper(int2* g_blockMinMax, int n, int* g_ans,
+                            int* numActiveBlocks, dim3 grid_size,
+                            dim3 block_size) {
+  getActiveBlocks<<<grid_size, block_size>>>(g_blockMinMax, n, g_ans,
+                                             numActiveBlocks);
+}
+

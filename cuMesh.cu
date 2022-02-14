@@ -1,73 +1,48 @@
 #include <cuda_gl_interop.h>
-#include <cuda_runtime.h>
-#include <math.h>
-
-#include <iostream>
+#include <glad/glad.h>
 
 #include "cuMesh.cuh"
 
-using namespace std;
+cuMesh::cuMesh(float3* h_vertices, int3* h_indices, size_t n_vertices,
+               size_t n_indices) {
+  cudaMemcpy(d_vertices, h_vertices, n_vertices * sizeof(float3),
+             cudaMemcpyHostToDevice);
+  cudaMemcpy(d_indices, h_indices, n_indices * sizeof(int3),
+             cudaMemcpyHostToDevice);
 
-__global__ void deformVertices(float3* pos, int n) {
-  unsigned int x = blockIdx.x * blockDim.x + threadIdx.x;
+  glGenBuffers(1, &VBO);
+  glGenBuffers(1, &EBO);
 
-  if (x < n) {
-    pos[x].x *= 1.0f;
-    pos[x].y *= 1.0f;
-    pos[x].z *= 1.0f;
-  }
-}
-
-cuMesh::cuMesh(unsigned int VBO, unsigned int EBO) {
-  mapVBO(VBO);
-  mapEBO(EBO);
+  mapVBO();
+  mapEBO();
 }
 
 cuMesh::cuMesh() {}
 
 cuMesh::~cuMesh() { deleteVBO_CUDA(); }
 
-void cuMesh::mapVBO(unsigned int VBO) {
-  vertices_g = nullptr;
+void cuMesh::mapVBO() {
   cudaGraphicsGLRegisterBuffer(&positionsVBO_CUDA, VBO,
                                cudaGraphicsMapFlagsWriteDiscard);
   cudaGraphicsMapResources(1, &positionsVBO_CUDA, 0);
 }
 
-void cuMesh::mapEBO(unsigned int EBO) {
-  indices_g = nullptr;
+void cuMesh::mapEBO() {
   cudaGraphicsGLRegisterBuffer(&indicesEBO_CUDA, EBO,
                                cudaGraphicsMapFlagsWriteDiscard);
   cudaGraphicsMapResources(1, &indicesEBO_CUDA, 0);
 }
 
 void cuMesh::deleteVBO_CUDA() {
+  cudaFree(d_indices);
   cudaGraphicsUnmapResources(1, &indicesEBO_CUDA, 0);
   cudaGraphicsUnregisterResource(indicesEBO_CUDA);
-  indices_g = nullptr;
 
+  cudaFree(d_vertices);
   cudaGraphicsUnmapResources(1, &positionsVBO_CUDA, 0);
   cudaGraphicsUnregisterResource(positionsVBO_CUDA);
-  vertices_g = nullptr;
+
+  glDeleteBuffers(1, &VBO);
+  glDeleteBuffers(1, &EBO);
 }
 
-void cuMesh::callKernel() {
-  size_t num_bytes_v;
-  cudaGraphicsResourceGetMappedPointer((void**)&vertices_g, &num_bytes_v,
-                                       positionsVBO_CUDA);
-  size_t num_vertices = num_bytes_v / (sizeof(float3));
-  vertices_h = (float3*)malloc(num_bytes_v);
-  cudaMemcpy(vertices_h, vertices_g, num_bytes_v, cudaMemcpyDeviceToHost);
-
-  size_t num_bytes_i;
-  cudaGraphicsResourceGetMappedPointer((void**)&indices_g, &num_bytes_i,
-                                       indicesEBO_CUDA);
-  size_t num_tri = num_bytes_i / (sizeof(int3));
-  indices_h = (int3*)malloc(num_bytes_i);
-  cudaMemcpy(indices_h, indices_g, num_bytes_i, cudaMemcpyDeviceToHost);
-
-  dim3 dimBlock(16, 1, 1);
-  dim3 dimGrid(ceil((float)num_vertices / dimBlock.x), 1, 1);
-
-  deformVertices<<<dimGrid, dimBlock>>>(vertices_g, num_vertices);
-}

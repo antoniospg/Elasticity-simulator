@@ -1,20 +1,5 @@
-#include <assert.h>
-
-#include <iostream>
-
-#include "computeTex.cuh"
 #include "constants.h"
-#include "errorHandling.cuh"
-#include "getActiveBlocks.cuh"
-#include "minMaxReduction.cuh"
-#include "voxelLoader.hpp"
-
-#define WP_SIZE 32
-typedef uchar3 bool3;
-
-__constant__ int d_edgeTable[256];
-__constant__ int d_triTable[256][16];
-__constant__ int d_neighbourMappingTable[12][4];
+#include "genTriangles.cuh"
 
 __device__ __inline__ float3 interpolate3(uint3 pos1, uint3 pos2, int w1,
                                           int w2) {
@@ -137,81 +122,14 @@ __global__ void generateTris(cudaTextureObject_t tex, int* activeBlocks,
   __syncthreads();
 
   bool3 xyz_edges = get_active_edges(pos, voxels);
-  if (xyz_edges.x > 0 || xyz_edges.y > 0 || xyz_edges.z > 0)
-    printf("%d %d %d ,,,,, %d %d %d \n", pos.x, pos.y, pos.z, xyz_edges.x,
-           xyz_edges.y, xyz_edges.z);
 
   __shared__ bool3 activeEdges[1024];
   activeEdges[tid_block] = xyz_edges;
   __syncthreads();
 }
 
-using namespace std;
-
-int main() {
-  VoxelLoader vl("sphere.dat");
-
-  cudaMemcpyToSymbol(d_edgeTable, edgeTable, 256 * sizeof(int));
-  cudaMemcpyToSymbol(d_triTable, edgeTable, 256 * 16 * sizeof(int));
-  cudaMemcpyToSymbol(d_neighbourMappingTable, edgeTable, 12 * 4 * sizeof(int));
-
-  ComputeTex ct(vl.pData, vl.n_x, vl.n_y, vl.n_z);
-
-  int n_x = vl.n_x, n_y = vl.n_y, n_z = vl.n_z;
-  int n = n_x * n_y * n_z;
-
-  dim3 block_size = {8, 8, 8};
-  dim3 grid_size = {(n_x + block_size.x - 1) / block_size.x,
-                    (n_y + block_size.y - 1) / block_size.y,
-                    (n_z + block_size.z - 1) / block_size.z};
-  int num_blocks = grid_size.x * grid_size.y * grid_size.z;
-
-  int2* h_blockMinMax = new int2[num_blocks];
-  int2* g_blockMinMax;
-  int* g_h_activeBlkNum;
-  int* g_numActiveBlocks;
-
-  cudaMalloc(&g_blockMinMax, num_blocks * sizeof(int2));
-  cudaMallocManaged(&g_h_activeBlkNum, num_blocks * sizeof(int));
-  cudaMalloc(&g_numActiveBlocks, num_blocks * sizeof(int));
-
-  for (int i = 0; i < num_blocks; i++) g_h_activeBlkNum[i] = -1;
-
-  blockReduceMinMax<<<grid_size, block_size>>>(ct.texObj, n, g_blockMinMax);
-
-  cudaMemcpy(h_blockMinMax, g_blockMinMax, num_blocks * sizeof(int2),
-             cudaMemcpyDeviceToHost);
-
-  for (int i = 0; i < num_blocks; i++) {
-    cout << "min : " << h_blockMinMax[i].x << " max : " << h_blockMinMax[i].y
-         << endl;
-  }
-  cout << "$$$$$$$$$$$\n";
-
-  int block_size2 = 128;
-  int grid_size2 = (num_blocks + block_size2 - 1) / block_size2;
-  getActiveBlocks<<<grid_size2, block_size2>>>(
-      g_blockMinMax, num_blocks, g_h_activeBlkNum, g_numActiveBlocks);
-
-  int* d_numActiveBlk = g_numActiveBlocks + block_size2 - 1;
-
-  cudaDeviceSynchronize();
-
-  uint numActiveBlk = 0;
-  cudaMemcpy(&numActiveBlk, g_numActiveBlocks + block_size2 - 1, sizeof(int),
-             cudaMemcpyDeviceToHost);
-
-  dim3 block_size3 = block_size;
-  int num_blocks3 = block_size3.x * block_size.y + block_size.z;
-  dim3 grid_size3 = {numActiveBlk};
-
-  int* g_vertex_offset;
-  cudaMalloc(&g_vertex_offset, 3 * n_x * n_y * n_z * sizeof(int));
-
-  generateTris<<<grid_size3, block_size3>>>(ct.texObj, g_h_activeBlkNum,
-                                            d_numActiveBlk);
-
-  for (int i = 0; i < 8; i++)
-    cout << g_h_activeBlkNum[i] << " " << h_blockMinMax[i].x << " "
-         << h_blockMinMax[i].y << " " << i << endl;
+void generateTrisWrapper(cudaTextureObject_t tex, int* activeBlocks,
+                         int* numActiveBlocks, dim3 grid_size,
+                         dim3 block_size) {
+  generateTris<<<grid_size, block_size>>>(tex, activeBlocks, numActiveBlocks);
 }

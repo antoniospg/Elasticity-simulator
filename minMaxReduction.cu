@@ -52,3 +52,7 @@ __global__ void blockReduceMinMax(cudaTextureObject_t tex, int n, int2* g_ans) {
   if (tid_block == 0) g_ans[bid] = val;
 }
 
+void blockReduceMinMaxWrapper(cudaTextureObject_t tex, int n_z, int2* g_ans,
+                              dim3 grid_size, dim3 block_size) {
+  blockReduceMinMax<<<grid_size, block_size>>>(tex, n_z, g_ans);
+}
