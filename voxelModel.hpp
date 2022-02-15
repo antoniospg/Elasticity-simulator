@@ -3,9 +3,9 @@
 
 #include <cuda_runtime.h>
 
+#include <cstring>
 #include <iostream>
 #include <string>
-#include <cstring>
 
 #include "computeTex.cuh"
 #include "constants.h"
@@ -46,29 +46,12 @@ class VoxelModel {
                              block_size);
     cudaDeviceSynchronize();
 
-    // Debug First Kernel
-    int2* h_blockMinMax = new int2[num_blocks];
-    cudaMemcpy(h_blockMinMax, d_blockMinMax, num_blocks * sizeof(int2),
-               cudaMemcpyDeviceToHost);
-
-    cout << "Min max Kernel : " << endl;
-    for (int i = 0; i < num_blocks; i++) {
-      cout << "min : " << h_blockMinMax[i].x << " max : " << h_blockMinMax[i].y
-           << endl;
-    }
-
     // Second Kernel Launch
-    int* h_activeBlkNum = new int[num_blocks];
-    memset(h_activeBlkNum, -1, num_blocks * sizeof(int));
-
     int* d_activeBlkNum;
     int* d_numActiveBlocks;
 
     cudaMalloc(&d_activeBlkNum, num_blocks * sizeof(int));
     cudaMalloc(&d_numActiveBlocks, num_blocks * sizeof(int));
-
-    cudaMemcpy(d_activeBlkNum, h_activeBlkNum, num_blocks * sizeof(int),
-               cudaMemcpyHostToDevice);
 
     int block_size2 = 128;
     int grid_size2 = (num_blocks + block_size2 - 1) / block_size2;
@@ -77,29 +60,23 @@ class VoxelModel {
                            d_numActiveBlocks, grid_size2, block_size2);
     cudaDeviceSynchronize();
 
-    int* d_numActiveBlk = d_numActiveBlocks +1;
-
-    // Debug second kernel
-    uint numActiveBlk = -1;
-    cudaMemcpy(&numActiveBlk, d_numActiveBlk, sizeof(int),
-               cudaMemcpyDeviceToHost);
-    cout << "    " << numActiveBlk << endl;
-
-    cudaMemcpy(h_activeBlkNum, d_activeBlkNum, num_blocks * sizeof(int),
-               cudaMemcpyDeviceToHost);
-
-    for (int i = 0; i < 8; i++) cout << h_activeBlkNum[i] << " " << i << endl;
+    int* d_numActiveBlk = d_numActiveBlocks + 1;
 
     // Third Kernel Launch
-    dim3 block_size3 = block_size;
-    int num_blocks3 = block_size3.x * block_size.y + block_size.z;
-    dim3 grid_size3 = {numActiveBlk};
+    // dim3 block_size3 = block_size;
+    // int num_blocks3 = block_size3.x * block_size.y + block_size.z;
+    // dim3 grid_size3 = {numActiveBlk};
 
-    int* d_vertex_offset;
-    cudaMalloc(&d_vertex_offset, 3 * n_x * n_y * n_z * sizeof(int));
+    // int* d_vertex_offset;
+    // cudaMalloc(&d_vertex_offset, 3 * n_x * n_y * n_z * sizeof(int));
 
-    generateTrisWrapper(ct.texObj, d_activeBlkNum, d_numActiveBlk, grid_size3,
-                        block_size3);
+    // generateTrisWrapper(ct.texObj, d_activeBlkNum, d_numActiveBlk,
+    // grid_size3,
+    //                    block_size3);
+
+    cudaFree(d_blockMinMax);
+    cudaFree(d_activeBlkNum);
+    cudaFree(d_numActiveBlocks);
   }
 };
 
