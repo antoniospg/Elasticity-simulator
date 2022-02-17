@@ -7,4 +7,4 @@
 
 using namespace std;
 
-int main() { VoxelModel vm("sphere.dat"); }
+int main() { VoxelModel vm("sphere.dat", 100); }

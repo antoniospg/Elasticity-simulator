@@ -8,6 +8,7 @@ class ComputeTex {
   int nx, ny, nz;
 
   ComputeTex(int* h_data, int nx, int ny, int nz);
+  ComputeTex();
   ~ComputeTex();
 };
 

@@ -1,5 +1,11 @@
 #include "computeTex.cuh"
 
+ComputeTex::ComputeTex() {
+  nx = 0;
+  ny = 0;
+  nz = 0;
+}
+
 ComputeTex ::ComputeTex(int *h_data, int nx, int ny, int nz) {
   // Volume size
   const cudaExtent volumeSize = make_cudaExtent(nx, ny, nz);
@@ -41,6 +47,7 @@ ComputeTex ::ComputeTex(int *h_data, int nx, int ny, int nz) {
 }
 
 ComputeTex ::~ComputeTex() {
+  if (nx == 0 && ny == 0 && nz == 0) return;
   // Destroy texture object
   cudaDestroyTextureObject(texObj);
   // Free device memory

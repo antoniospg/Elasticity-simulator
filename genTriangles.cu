@@ -1,14 +1,17 @@
+#include <stdio.h>
+
 #include "constants.h"
+#include "errorHandling.cuh"
 #include "genTriangles.cuh"
 
-__device__ __inline__ float3 interpolate3(uint3 pos1, uint3 pos2, int w1,
+__device__ __inline__ float3 genTriangles::interpolate3(uint3 pos1, uint3 pos2, int w1,
                                           int w2) {
   return float3{(float)(pos1.x * w1 + pos2.x * w2) / (w1 + w2),
                 (float)(pos1.y * w1 + pos2.y * w2) / (w1 + w2),
                 (float)(pos1.z * w1 + pos2.z * w2) / (w1 + w2)};
 }
 
-__device__ int3 sampleVolume_old(uint3 pos, volatile int* shem,
+__device__ int3 genTriangles::sampleVolume_old(uint3 pos, volatile int* shem,
                                  cudaTextureObject_t tex, float3* vertices) {
   int tid_block = threadIdx.x + blockDim.x * threadIdx.y +
                   blockDim.x * blockDim.y * threadIdx.z;
@@ -60,7 +63,7 @@ __device__ int3 sampleVolume_old(uint3 pos, volatile int* shem,
   return indices;
 }
 
-__device__ bool3 get_active_edges(uint3 pos, volatile int* shem) {
+__device__ bool3 genTriangles::get_active_edges(uint3 pos, volatile int* shem) {
   int tid_block = threadIdx.x + blockDim.x * threadIdx.y +
                   blockDim.x * blockDim.y * threadIdx.z;
   // Neighbours in each direction
@@ -85,7 +88,7 @@ __device__ bool3 get_active_edges(uint3 pos, volatile int* shem) {
   return bool3{xyz_edges[0], xyz_edges[1], xyz_edges[2]};
 }
 
-__device__ __inline__ bool get_neighbor_mapping(int edge,
+__device__ __inline__ bool genTriangles::get_neighbor_mapping(int edge,
                                                 volatile bool3* shem) {
   int edge_offset[4] = {
       d_neighbourMappingTable[edge][0], d_neighbourMappingTable[edge][2],
@@ -101,7 +104,7 @@ __device__ __inline__ bool get_neighbor_mapping(int edge,
   return -1;
 }
 
-__global__ void generateTris(cudaTextureObject_t tex, int* activeBlocks,
+__global__ void genTriangles::generateTris(cudaTextureObject_t tex, int* activeBlocks,
                              int* numActiveBlocks) {
   uint numBlk = *numActiveBlocks;
   int block_id = activeBlocks[blockIdx.x];
@@ -128,8 +131,12 @@ __global__ void generateTris(cudaTextureObject_t tex, int* activeBlocks,
   __syncthreads();
 }
 
-void generateTrisWrapper(cudaTextureObject_t tex, int* activeBlocks,
-                         int* numActiveBlocks, dim3 grid_size,
-                         dim3 block_size) {
+void genTriangles::generateTrisWrapper(cudaTextureObject_t tex, int* activeBlocks,
+                         int* numActiveBlocks, dim3 grid_size, dim3 block_size,
+                         int isoVal) {
+  gpuErrchk(cudaMemcpyToSymbol(d_isoVal, &isoVal, sizeof(int)));
+  gpuErrchk(cudaMemcpyToSymbol(d_neighbourMappingTable, neighbourMappingTable,
+                               12 * 4 * sizeof(int)));
+
   generateTris<<<grid_size, block_size>>>(tex, activeBlocks, numActiveBlocks);
 }

@@ -2,7 +2,10 @@
 #define GENTRIANGLES_CUH
 
 typedef uchar3 bool3;
+
+namespace genTriangles {
 __constant__ int d_neighbourMappingTable[12][4];
+__constant__ int d_isoVal;
 
 __device__ __inline__ float3 interpolate3(uint3 pos1, uint3 pos2, int w1,
                                           int w2);
@@ -18,6 +21,7 @@ __global__ void generateTris(cudaTextureObject_t tex, int* activeBlocks,
                              int* numActiveBlocks);
 
 void generateTrisWrapper(cudaTextureObject_t tex, int* activeBlocks,
-                         int* numActiveBlocks, dim3 grid_size, dim3 block_size);
-
+                         int* numActiveBlocks, dim3 grid_size, dim3 block_size,
+                         int isoVal);
+};  // namespace genTriangles
 #endif

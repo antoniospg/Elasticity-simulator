@@ -14,6 +14,8 @@ class VoxelLoader {
   int* pData;
   int n_x, n_y, n_z;
 
+  VoxelLoader() {}
+
   VoxelLoader(string path) {
     FILE* fp = fopen(path.c_str(), "rb");
 

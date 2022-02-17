@@ -6,7 +6,7 @@
 using namespace std;
 
 int main() {
-  int nx = 32, ny = 32, nz = 32;
+  int nx = 16, ny = 16, nz = 16;
   int* data = (int*)malloc(nx * ny * nz * sizeof(int));
 
   ofstream file("sphere.dat");

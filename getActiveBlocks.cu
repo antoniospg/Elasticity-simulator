@@ -3,7 +3,7 @@
 #include "constants.h"
 #include "getActiveBlocks.cuh"
 
-__device__ __inline__ int warpReduceScan(int val, int laneid) {
+__device__ __inline__ int getActiveBlocks::warpReduceScan(int val, int laneid) {
 #pragma unroll
   for (int offset = 1; offset < WP_SIZE; offset *= 2) {
     int y = __shfl_up_sync(0xffffffff, val, offset);
@@ -12,8 +12,9 @@ __device__ __inline__ int warpReduceScan(int val, int laneid) {
   return val;
 }
 
-__global__ void getActiveBlocks(int2* g_blockMinMax, int n, int* g_ans,
-                                int* numActiveBlocks) {
+__global__ void getActiveBlocks::getActiveBlocks(int2* g_blockMinMax, int n,
+                                                 int* g_ans,
+                                                 int* numActiveBlocks) {
   int tid_block = threadIdx.x;
   int lane = tid_block % WP_SIZE;
   int bid = blockIdx.x;
@@ -26,7 +27,7 @@ __global__ void getActiveBlocks(int2* g_blockMinMax, int n, int* g_ans,
   //    !(g_blockMinMax[tid].x != 0 & g_blockMinMax[tid].y != 0);
 
   bool non_empty_block =
-      (g_blockMinMax[tid].x < ISO_VAL & g_blockMinMax[tid].y >= ISO_VAL);
+      (g_blockMinMax[tid].x < d_isoVal & g_blockMinMax[tid].y >= d_isoVal);
 
   int bTest = non_empty_block;
   bTest = warpReduceScan(bTest, lane);
@@ -55,9 +56,11 @@ __global__ void getActiveBlocks(int2* g_blockMinMax, int n, int* g_ans,
   if (non_empty_block) g_ans[bTest - 1] = tid;
 }
 
-void getActiveBlocksWrapper(int2* g_blockMinMax, int n, int* g_ans,
-                            int* numActiveBlocks, dim3 grid_size,
-                            dim3 block_size) {
+void getActiveBlocks::getActiveBlocksWrapper(int2* g_blockMinMax, int n,
+                                             int* g_ans, int* numActiveBlocks,
+                                             dim3 grid_size, dim3 block_size,
+                                             int isoVal) {
+  cudaMemcpyToSymbol(d_isoVal, &isoVal, sizeof(int));
   getActiveBlocks<<<grid_size, block_size>>>(g_blockMinMax, n, g_ans,
                                              numActiveBlocks);
 }

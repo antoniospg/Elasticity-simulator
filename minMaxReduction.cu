@@ -8,7 +8,7 @@ using namespace std;
 
 #define WP_SIZE 32
 
-__device__ __inline__ int2 warpReduceMinMax(int2 val) {
+__device__ __inline__ int2 minMax::warpReduceMinMax(int2 val) {
 #pragma unroll
   for (int offset = WP_SIZE / 2; offset > 0; offset /= 2) {
     val.x = min(val.x, __shfl_down_sync(0xffffffff, val.x, offset));
@@ -17,7 +17,7 @@ __device__ __inline__ int2 warpReduceMinMax(int2 val) {
   return val;
 }
 
-__global__ void blockReduceMinMax(cudaTextureObject_t tex, int n, int2* g_ans) {
+__global__ void minMax::blockReduceMinMax(cudaTextureObject_t tex, int n, int2* g_ans) {
   int tid_block = (threadIdx.z * blockDim.y * blockDim.x +
                    threadIdx.y * blockDim.x + threadIdx.x);
   int bid = (blockIdx.z * gridDim.y * gridDim.x + blockIdx.y * gridDim.x +
@@ -52,7 +52,8 @@ __global__ void blockReduceMinMax(cudaTextureObject_t tex, int n, int2* g_ans) {
   if (tid_block == 0) g_ans[bid] = val;
 }
 
-void blockReduceMinMaxWrapper(cudaTextureObject_t tex, int n_z, int2* g_ans,
+void minMax::blockReduceMinMaxWrapper(cudaTextureObject_t tex, int n_z, int2* g_ans,
                               dim3 grid_size, dim3 block_size) {
   blockReduceMinMax<<<grid_size, block_size>>>(tex, n_z, g_ans);
 }
+
