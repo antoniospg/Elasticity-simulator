@@ -55,14 +55,13 @@ class VoxelModel {
       cout << "min : " << h_blockMinMax[i].x << " max : " << h_blockMinMax[i].y
            << endl;
     }
-
-    draw();
+    delete h_blockMinMax;
   }
 
   void draw() {
+    int num_blocks = grid_size.x * grid_size.y * grid_size.z;
     // Second Kernel Launch
     cout << "Second kernel : " << endl;
-    int num_blocks = grid_size.x * grid_size.y * grid_size.z;
 
     int* h_activeBlkNum = new int[num_blocks];
     memset(h_activeBlkNum, -1, num_blocks * sizeof(int));
@@ -73,6 +72,8 @@ class VoxelModel {
 
     cudaMalloc(&d_activeBlkNum, num_blocks * sizeof(int));
     cudaMalloc(&d_numActiveBlocks, num_blocks * sizeof(int));
+    cudaMemset(d_activeBlkNum, 0, num_blocks * sizeof(int));
+    cudaMemset(d_numActiveBlocks, 0, num_blocks * sizeof(int));
 
     int block_size2 = 128;
     int grid_size2 = (num_blocks + block_size2 - 1) / block_size2;
@@ -85,7 +86,7 @@ class VoxelModel {
     int* d_numActiveBlk = d_numActiveBlocks + 1;
 
     // Debug second kernel
-    uint numActiveBlk = -1;
+    int numActiveBlk = -1;
     cudaMemcpy(&numActiveBlk, d_numActiveBlk, sizeof(int),
                cudaMemcpyDeviceToHost);
     cout << "    " << numActiveBlk << endl;
@@ -105,9 +106,9 @@ class VoxelModel {
     genTriangles::generateTrisWrapper(ct.texObj, d_activeBlkNum, d_numActiveBlk,
                                       grid_size3, block_size3, isoVal, nxyz);
 
-    cudaFree(d_blockMinMax);
     cudaFree(d_activeBlkNum);
     cudaFree(d_numActiveBlocks);
+    delete h_activeBlkNum;
   }
 
   ~VoxelModel() { cudaFree(d_blockMinMax); }

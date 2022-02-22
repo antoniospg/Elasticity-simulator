@@ -2,7 +2,6 @@
 #define GETACTIVEBLOCKS_CUH
 
 namespace getActiveBlocks {
-__constant__ int d_isoVal;
 
 __device__ __inline__ int warpReduceScan(int val, int laneid);
 

@@ -3,10 +3,10 @@
 #include "constants.h"
 #include "genTriangles.cuh"
 
- __constant__ int d_neighbourMappingTable[12][4];
- __constant__ int d_edgeTable[256];
- __constant__ int d_triTable[256][16];
- __constant__ int d_isoVal;
+__constant__ int d_neighbourMappingTable[12][4];
+__constant__ int d_edgeTable[256];
+__constant__ int d_triTable[256][16];
+__constant__ int d_isoVal;
 
 __device__ int genTriangles::getCubeidx(uint3 pos, volatile int* shem) {
   int tid_block = threadIdx.x + blockDim.x * threadIdx.y +
@@ -280,6 +280,8 @@ void genTriangles::generateTrisWrapper(cudaTextureObject_t tex,
   int* d_block_index_offset;
   cudaMalloc(&d_block_vertex_offset, grid_size.x * sizeof(int));
   cudaMalloc(&d_block_index_offset, grid_size.x * sizeof(int));
+  cudaMemset(d_block_vertex_offset, 0, grid_size.x * sizeof(int));
+  cudaMemset(d_block_index_offset, 0, grid_size.x * sizeof(int));
 
   // store vertices / indices
   float3* d_vertices;

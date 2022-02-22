@@ -3,6 +3,8 @@
 #include "constants.h"
 #include "getActiveBlocks.cuh"
 
+__constant__ int d_isoVal2;
+
 __device__ __inline__ int getActiveBlocks::warpReduceScan(int val, int laneid) {
 #pragma unroll
   for (int offset = 1; offset < WP_SIZE; offset *= 2) {
@@ -27,7 +29,7 @@ __global__ void getActiveBlocks::getActiveBlocks(int2* g_blockMinMax, int n,
   //    !(g_blockMinMax[tid].x != 0 & g_blockMinMax[tid].y != 0);
 
   bool non_empty_block =
-      (g_blockMinMax[tid].x < d_isoVal & g_blockMinMax[tid].y >= d_isoVal);
+      (g_blockMinMax[tid].x < d_isoVal2 & g_blockMinMax[tid].y >= d_isoVal2);
 
   int bTest = non_empty_block;
   bTest = warpReduceScan(bTest, lane);
@@ -41,13 +43,14 @@ __global__ void getActiveBlocks::getActiveBlocks(int2* g_blockMinMax, int n,
     bTestPerWarp[lane] = val;
   }
   __syncthreads();
+  printf("%d \n", numActiveBlocks[1]);
 
   bTest += (wid > 0) ? bTestPerWarp[wid - 1] : 0;
 
   if (tid_block == 0) {
     int block_sum = bTestPerWarp[31];
 
-    for (int i = bid+1; i < blockDim.x; i++)
+    for (int i = bid + 1; i < blockDim.x; i++)
       atomicAdd(numActiveBlocks + i, block_sum);
   }
   __syncthreads();
@@ -60,7 +63,7 @@ void getActiveBlocks::getActiveBlocksWrapper(int2* g_blockMinMax, int n,
                                              int* g_ans, int* numActiveBlocks,
                                              dim3 grid_size, dim3 block_size,
                                              int isoVal) {
-  cudaMemcpyToSymbol(d_isoVal, &isoVal, sizeof(int));
+  cudaMemcpyToSymbol(d_isoVal2, &isoVal, sizeof(int));
   getActiveBlocks<<<grid_size, block_size>>>(g_blockMinMax, n, g_ans,
                                              numActiveBlocks);
 }

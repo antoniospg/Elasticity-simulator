@@ -57,17 +57,6 @@ OBJ_RUN = $(addprefix run-, $(notdir $(addsuffix .o, $(CPP_FILES))))
 # Top level rules
 all: run
 
-# Compile C++ Source Files
-run-%.cpp.o: %.cpp  
-	$(GPP) $(FLAGS) -c -o $@ $(INCLUDE) $< 
-
-run-%.cpp.o:$(IMGUI_DIR)/%.cpp
-	$(GPP) $(FLAGS) -c -o $@ $(INCLUDE) $<
-
-run-%.cpp.o:$(IMGUI_DIR)/backends/%.cpp
-	$(GPP) $(FLAGS) -c -o $@ $(INCLUDE) $<
-
-
 # Compile CUDA Source Files
 %.cu.o: %.cu
 	$(NVCC) $(NVCC_FLAGS) $(NVCC_GENCODES) -c -o $@ $(NVCC_INCLUDE) $<
@@ -80,7 +69,16 @@ $(CUDA_OBJ): $(CUDA_OBJ_FILES)
 run: $(OBJ_RUN) $(CUDA_OBJ) $(CUDA_OBJ_FILES)
 	$(GPP) $(FLAGS) -o run $(INCLUDE) $^ $(LIBS) 
 
+# Compile C++ Source Files
+run-%.cpp.o: %.cpp  
+	$(GPP) $(FLAGS) -c -o $@ $(INCLUDE) $< 
 
+run-%.cpp.o:$(IMGUI_DIR)/%.cpp
+	$(GPP) $(FLAGS) -c -o $@ $(INCLUDE) $<
+
+run-%.cpp.o:$(IMGUI_DIR)/backends/%.cpp
+	$(GPP) $(FLAGS) -c -o $@ $(INCLUDE) $<
+	#
 # Clean everything including temporary Emacs files
 clean:
 	rm -f *.o

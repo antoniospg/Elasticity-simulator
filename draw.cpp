@@ -1,6 +1,5 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
-#include <glad/glad.h>
 
 #include <algorithm>
 #include <cmath>
@@ -17,10 +16,11 @@
 #include "mesh.hpp"
 #include "model.hpp"
 #include "shader.hpp"
+#include "voxelModel.hpp"
 
 int main() {
   float h = 1200;
-  const char *glsl_version = "#version 130";
+  const char* glsl_version = "#version 130";
 
   // glfw: initialize and configure
   // ------------------------------
@@ -57,7 +57,7 @@ int main() {
   // Setup Dear ImGui style
   ImGui::StyleColorsDark();
 
- // VoxelModel vm("sphere.dat", 100); 
+  VoxelModel vm("sphere.dat", 100);
   Shader df("shaders/default.vert", "shaders/default.frag");
   Model m("./icosahedron.obj");
   glEnable(GL_DEPTH_TEST);
@@ -91,6 +91,12 @@ int main() {
     // ------
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    // Count fps
+    float prevTime = timeVal;
+    timeVal = glfwGetTime();
+    string title = to_string(1/(timeVal - prevTime));
+    glfwSetWindowTitle(window, title.data());
 
     // feed inputs to dear imgui, start new frame
     ImGui_ImplOpenGL3_NewFrame();
@@ -129,7 +135,7 @@ int main() {
     df.setMat4("view", view);
     df.setMat4("model", model);
 
-    //vm.draw();
+    vm.draw();
 
     m.render(df);
 
@@ -146,6 +152,6 @@ int main() {
 
   ImGui_ImplOpenGL3_Shutdown();
   ImGui_ImplGlfw_Shutdown();
-  ImGui::DestroyContext(); 
+  ImGui::DestroyContext();
   return 0;
 }
