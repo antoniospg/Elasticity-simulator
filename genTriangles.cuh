@@ -5,10 +5,6 @@ typedef uchar3 bool3;
 typedef uchar4 bool4;
 
 namespace genTriangles {
-__constant__ int d_neighbourMappingTable[12][4];
-__constant__ int d_edgeTable[256];
-__constant__ int d_triTable[256][16];
-__constant__ int d_isoVal;
 
 __device__ __inline__ float3 lerpVertex(uint3 pos1, uint3 pos2, int v1, int v2);
 

@@ -17,7 +17,6 @@
 #include "mesh.hpp"
 #include "model.hpp"
 #include "shader.hpp"
-#include "voxelLoader.hpp"
 
 int main() {
   float h = 1200;
@@ -58,11 +57,11 @@ int main() {
   // Setup Dear ImGui style
   ImGui::StyleColorsDark();
 
-  //VoxelLoader vm("sphere.dat");
+ // VoxelModel vm("sphere.dat", 100); 
   Shader df("shaders/default.vert", "shaders/default.frag");
   Model m("./icosahedron.obj");
   glEnable(GL_DEPTH_TEST);
-  //glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+  glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
   // glPolygonMode(GL_FRONT, GL_POLYGON);
 
   // render loop
@@ -130,7 +129,8 @@ int main() {
     df.setMat4("view", view);
     df.setMat4("model", model);
 
-    cout << "render "<< endl;
+    //vm.draw();
+
     m.render(df);
 
     // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved

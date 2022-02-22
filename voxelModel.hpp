@@ -45,7 +45,6 @@ class VoxelModel {
                                      block_size);
     cudaDeviceSynchronize();
 
-<<<<<<< HEAD
     // Debug First Kernel
     int2* h_blockMinMax = new int2[num_blocks];
     cudaMemcpy(h_blockMinMax, d_blockMinMax, num_blocks * sizeof(int2),
@@ -68,9 +67,7 @@ class VoxelModel {
     int* h_activeBlkNum = new int[num_blocks];
     memset(h_activeBlkNum, -1, num_blocks * sizeof(int));
 
-=======
     // Second Kernel Launch
->>>>>>> parent of b427360... Revert "fixing opengl stuff"
     int* d_activeBlkNum;
     int* d_numActiveBlocks;
 
@@ -86,7 +83,6 @@ class VoxelModel {
     cudaDeviceSynchronize();
 
     int* d_numActiveBlk = d_numActiveBlocks + 1;
-<<<<<<< HEAD
 
     // Debug second kernel
     uint numActiveBlk = -1;
@@ -108,25 +104,13 @@ class VoxelModel {
 
     genTriangles::generateTrisWrapper(ct.texObj, d_activeBlkNum, d_numActiveBlk,
                                       grid_size3, block_size3, isoVal, nxyz);
-=======
-
-    // Third Kernel Launch
-    // dim3 block_size3 = block_size;
-    // int num_blocks3 = block_size3.x * block_size.y + block_size.z;
-    // dim3 grid_size3 = {numActiveBlk};
-
-    // int* d_vertex_offset;
-    // cudaMalloc(&d_vertex_offset, 3 * n_x * n_y * n_z * sizeof(int));
-
-    // generateTrisWrapper(ct.texObj, d_activeBlkNum, d_numActiveBlk,
-    // grid_size3,
-    //                    block_size3);
 
     cudaFree(d_blockMinMax);
     cudaFree(d_activeBlkNum);
     cudaFree(d_numActiveBlocks);
->>>>>>> parent of b427360... Revert "fixing opengl stuff"
   }
+
+  ~VoxelModel() { cudaFree(d_blockMinMax); }
 };
 
 #endif

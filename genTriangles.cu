@@ -1,8 +1,12 @@
 #include <stdio.h>
 
 #include "constants.h"
-#include "errorHandling.cuh"
 #include "genTriangles.cuh"
+
+ __constant__ int d_neighbourMappingTable[12][4];
+ __constant__ int d_edgeTable[256];
+ __constant__ int d_triTable[256][16];
+ __constant__ int d_isoVal;
 
 __device__ int genTriangles::getCubeidx(uint3 pos, volatile int* shem) {
   int tid_block = threadIdx.x + blockDim.x * threadIdx.y +
@@ -265,11 +269,11 @@ void genTriangles::generateTrisWrapper(cudaTextureObject_t tex,
                                        int* activeBlocks, int* numActiveBlocks,
                                        dim3 grid_size, dim3 block_size,
                                        int isoVal, uint3 nxyz) {
-  gpuErrchk(cudaMemcpyToSymbol(d_isoVal, &isoVal, sizeof(int)));
-  gpuErrchk(cudaMemcpyToSymbol(d_neighbourMappingTable, neighbourMappingTable,
-                               12 * 4 * sizeof(int)));
-  gpuErrchk(cudaMemcpyToSymbol(d_edgeTable, edgeTable, 256 * sizeof(int)));
-  gpuErrchk(cudaMemcpyToSymbol(d_triTable, triTable, 256 * 16 * sizeof(int)));
+  cudaMemcpyToSymbol(d_isoVal, &isoVal, sizeof(int));
+  cudaMemcpyToSymbol(d_neighbourMappingTable, neighbourMappingTable,
+                     12 * 4 * sizeof(int));
+  cudaMemcpyToSymbol(d_edgeTable, edgeTable, 256 * sizeof(int));
+  cudaMemcpyToSymbol(d_triTable, triTable, 256 * 16 * sizeof(int));
 
   // Global offset
   int* d_block_vertex_offset;
@@ -280,40 +284,42 @@ void genTriangles::generateTrisWrapper(cudaTextureObject_t tex,
   // store vertices / indices
   float3* d_vertices;
   int3* d_indices;
-  cudaMalloc(&d_vertices, 128 * 128 * 128 * sizeof(float3));
-  cudaMalloc(&d_indices, 128 * 128 * 128 * sizeof(int3));
+  cudaMalloc(&d_vertices, nxyz.x * nxyz.y * nxyz.z * sizeof(float3));
+  cudaMalloc(&d_indices, nxyz.x * nxyz.y * nxyz.z * sizeof(int3));
 
-  // Debug
-  float3* h_vertices;
-  int3* h_indices;
-  h_vertices = (float3*)malloc(128 * 128 * 128 * sizeof(float3));
-  h_indices = (int3*)malloc(128 * 128 * 128 * sizeof(int3));
+  //// Debug
+  // float3* h_vertices;
+  // int3* h_indices;
+  // h_vertices = (float3*)malloc(nxyz.x * nxyz.y * nxyz.z * sizeof(float3));
+  // h_indices = (int3*)malloc(nxyz.x * nxyz.y * nxyz.z * sizeof(int3));
 
-  // Debug
-  int* block_vertex_offset = (int*)malloc(grid_size.x * sizeof(int));
-  int* block_index_offset = (int*)malloc(grid_size.x * sizeof(int));
+  //// Debug
+  // int* block_vertex_offset = (int*)malloc(grid_size.x * sizeof(int));
+  // int* block_index_offset = (int*)malloc(grid_size.x * sizeof(int));
 
   generateTris<<<grid_size, block_size>>>(
       tex, activeBlocks, numActiveBlocks, nxyz, d_block_vertex_offset,
       d_block_index_offset, d_vertices, d_indices);
 
-  cudaMemcpy(block_vertex_offset, d_block_vertex_offset,
-             grid_size.x * sizeof(int), cudaMemcpyDeviceToHost);
-  cudaMemcpy(block_index_offset, d_block_index_offset,
-             grid_size.x * sizeof(int), cudaMemcpyDeviceToHost);
-  for (int i = 0; i < grid_size.x; i++) {
-    printf("%d %d %d \n", block_vertex_offset[i], block_index_offset[i], i);
-  }
+  // cudaMemcpy(block_vertex_offset, d_block_vertex_offset,
+  //           grid_size.x * sizeof(int), cudaMemcpyDeviceToHost);
+  // cudaMemcpy(block_index_offset, d_block_index_offset,
+  //           grid_size.x * sizeof(int), cudaMemcpyDeviceToHost);
+  // for (int i = 0; i < grid_size.x; i++) {
+  //  printf("%d %d %d \n", block_vertex_offset[i], block_index_offset[i], i);
+  //}
 
-  cudaMemcpy(h_vertices, d_vertices, 128 * 128 * 128 * sizeof(float3),
-             cudaMemcpyDeviceToHost);
-  cudaMemcpy(h_indices, d_indices, 128 * 128 * 128 * sizeof(int3),
-             cudaMemcpyDeviceToHost);
+  // cudaMemcpy(h_vertices, d_vertices, 128 * 128 * 128 * sizeof(float3),
+  //           cudaMemcpyDeviceToHost);
+  // cudaMemcpy(h_indices, d_indices, 128 * 128 * 128 * sizeof(int3),
+  //           cudaMemcpyDeviceToHost);
 
-  printf("****************\n");
-  for (int i = 0; i < 128; i++)
-    printf("%f %f %f \n", h_vertices[i].x, h_vertices[i].y, h_vertices[i].z);
+  // printf("****************\n");
+  // for (int i = 0; i < 128; i++)
+  //  printf("%f %f %f \n", h_vertices[i].x, h_vertices[i].y, h_vertices[i].z);
 
   cudaFree(d_block_vertex_offset);
   cudaFree(d_block_index_offset);
+  cudaFree(d_vertices);
+  cudaFree(d_indices);
 }
