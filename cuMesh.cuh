@@ -7,14 +7,14 @@ class cuMesh {
   struct cudaGraphicsResource* indicesEBO_CUDA;
   float3* d_vertices;
   int3* d_indices;
-  uint VBO, EBO;
+  uint VBO, EBO, VAO;
 
-  cuMesh(float3* h_vertices, int3* h_indices, size_t n_vertices,
+  cuMesh(float3* h_vertices, uint3* h_indices, size_t n_vertices,
          size_t n_indices);
   cuMesh();
   ~cuMesh();
-  void mapVBO(unsigned int VBO);
-  void mapEBO(unsigned int EBO);
+  void mapVBO();
+  void mapEBO();
   void deleteVBO_CUDA();
 };
 

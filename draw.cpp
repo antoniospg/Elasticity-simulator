@@ -58,11 +58,11 @@ int main() {
   // Setup Dear ImGui style
   ImGui::StyleColorsDark();
 
-  VoxelLoader vm("sphere.dat");
+  //VoxelLoader vm("sphere.dat");
   Shader df("shaders/default.vert", "shaders/default.frag");
   Model m("./icosahedron.obj");
   glEnable(GL_DEPTH_TEST);
-  glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+  //glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
   // glPolygonMode(GL_FRONT, GL_POLYGON);
 
   // render loop
@@ -130,6 +130,7 @@ int main() {
     df.setMat4("view", view);
     df.setMat4("model", model);
 
+    cout << "render "<< endl;
     m.render(df);
 
     // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved

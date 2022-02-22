@@ -47,7 +47,7 @@ __global__ void getActiveBlocks::getActiveBlocks(int2* g_blockMinMax, int n,
   if (tid_block == 0) {
     int block_sum = bTestPerWarp[31];
 
-    for (int i = bid + 1; i < blockDim.x; i++)
+    for (int i = bid+1; i < blockDim.x; i++)
       atomicAdd(numActiveBlocks + i, block_sum);
   }
   __syncthreads();
