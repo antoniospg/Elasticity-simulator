@@ -1,5 +1,6 @@
-#include <glad/glad.h>
+#define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
+#include <glad/glad.h>
 
 #include <algorithm>
 #include <cmath>
@@ -61,7 +62,7 @@ int main() {
   Shader df("shaders/default.vert", "shaders/default.frag");
   Model m("./icosahedron.obj");
   glEnable(GL_DEPTH_TEST);
-  glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+  glPolygonMode(GL_FRONT_AND_BACK, GL_POINT);
   // glPolygonMode(GL_FRONT, GL_POLYGON);
 
   // render loop
@@ -95,7 +96,7 @@ int main() {
     // Count fps
     float prevTime = timeVal;
     timeVal = glfwGetTime();
-    string title = to_string(1/(timeVal - prevTime));
+    string title = to_string(1 / (timeVal - prevTime));
     glfwSetWindowTitle(window, title.data());
 
     // feed inputs to dear imgui, start new frame
@@ -134,8 +135,6 @@ int main() {
     df.setMat4("proj", proj);
     df.setMat4("view", view);
     df.setMat4("model", model);
-
-    vm.draw();
 
     m.render(df);
 

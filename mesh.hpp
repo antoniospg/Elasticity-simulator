@@ -1,7 +1,6 @@
 #ifndef MESH_H
 #define MESH_H
 
-#include <GLFW/glfw3.h>
 #include <cuda_runtime.h>
 #include <glad/glad.h>
 
@@ -46,6 +45,14 @@ class Mesh {
 
   Mesh(const Mesh &m) : vertices(m.vertices), indices(m.indices) {
     setupMesh();
+  }
+
+  Mesh(int n_vertices, int n_indices) {
+    cm = cuMesh(n_vertices, n_indices);
+
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void *)0);
+    glBindVertexArray(0);
   }
 
   void render(Shader &shader) {

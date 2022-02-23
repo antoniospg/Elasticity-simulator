@@ -32,9 +32,28 @@ cuMesh::cuMesh(float3* h_vertices, uint3* h_indices, size_t n_vertices,
              cudaMemcpyHostToDevice);
 }
 
+cuMesh::cuMesh(int n_vertices, int n_indices) {
+  glGenBuffers(1, &VBO);
+  glGenBuffers(1, &EBO);
+  glGenVertexArrays(1, &VAO);
+
+  glBindVertexArray(VAO);
+
+  glBindBuffer(GL_ARRAY_BUFFER, VBO);
+  uint size_VBO = n_vertices * sizeof(float3);
+  glBufferData(GL_ARRAY_BUFFER, size_VBO, 0, GL_DYNAMIC_DRAW);
+
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+  uint size_EBO = n_indices * sizeof(int3);
+  glBufferData(GL_ELEMENT_ARRAY_BUFFER, size_EBO, 0, GL_DYNAMIC_DRAW);
+
+  mapVBO();
+  mapEBO();
+}
+
 cuMesh::cuMesh() {}
 
-cuMesh::~cuMesh() { }
+cuMesh::~cuMesh() {}
 
 void cuMesh::mapVBO() {
   cudaGraphicsGLRegisterBuffer(&positionsVBO_CUDA, VBO,

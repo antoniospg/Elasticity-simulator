@@ -12,6 +12,7 @@
 #include "cuMesh.cuh"
 #include "genTriangles.cuh"
 #include "getActiveBlocks.cuh"
+#include "mesh.hpp"
 #include "minMaxReduction.cuh"
 #include "voxelLoader.hpp"
 
@@ -27,8 +28,13 @@ class VoxelModel {
   int2* d_blockMinMax;
 
  public:
+  Mesh mesh;
+
   VoxelModel(string path, int isoVal)
-      : vl(path), ct(vl.pData, vl.n_x, vl.n_y, vl.n_z), isoVal(isoVal) {
+      : vl(path),
+        ct(vl.pData, vl.n_x, vl.n_y, vl.n_z),
+        isoVal(isoVal),
+        mesh(4096, 4096) {
     n_x = vl.n_x, n_y = vl.n_y, n_z = vl.n_z;
     uint n = n_x * n_y * n_z;
 
@@ -56,12 +62,14 @@ class VoxelModel {
            << endl;
     }
     delete h_blockMinMax;
+
+    draw();
   }
 
   void draw() {
     int num_blocks = grid_size.x * grid_size.y * grid_size.z;
     // Second Kernel Launch
-    cout << "Second kernel : " << endl;
+    // cout << "Second kernel : " << endl;
 
     int* h_activeBlkNum = new int[num_blocks];
     memset(h_activeBlkNum, -1, num_blocks * sizeof(int));
@@ -89,22 +97,24 @@ class VoxelModel {
     int numActiveBlk = -1;
     cudaMemcpy(&numActiveBlk, d_numActiveBlk, sizeof(int),
                cudaMemcpyDeviceToHost);
-    cout << "    " << numActiveBlk << endl;
+    // cout << "    " << numActiveBlk << endl;
 
     cudaMemcpy(h_activeBlkNum, d_activeBlkNum, num_blocks * sizeof(int),
                cudaMemcpyDeviceToHost);
 
-    for (int i = 0; i < 8; i++) cout << h_activeBlkNum[i] << " " << i << endl;
+    // for (int i = 0; i < 8; i++) cout << h_activeBlkNum[i] << " " << i <<
+    // endl;
 
     // Third Kernel Launch
-    cout << "Third kernel : " << endl;
+    // cout << "Third kernel : " << endl;
     dim3 block_size3 = block_size;
     int num_blocks3 = block_size3.x * block_size.y + block_size.z;
     dim3 grid_size3 = {numActiveBlk};
     uint3 nxyz = uint3{n_x, n_y, n_z};
 
     genTriangles::generateTrisWrapper(ct.texObj, d_activeBlkNum, d_numActiveBlk,
-                                      grid_size3, block_size3, isoVal, nxyz);
+                                      grid_size3, block_size3, isoVal, nxyz,
+                                      mesh.cm);
 
     cudaFree(d_activeBlkNum);
     cudaFree(d_numActiveBlocks);

@@ -1,6 +1,8 @@
 #ifndef GENTRIANGLES_CUH
 #define GENTRIANGLES_CUH
 
+#include "cuMesh.cuh"
+
 typedef uchar3 bool3;
 typedef uchar4 bool4;
 
@@ -29,6 +31,6 @@ __device__ int getCubeidx(uint3 pos, volatile int* shem);
 
 void generateTrisWrapper(cudaTextureObject_t tex, int* activeBlocks,
                          int* numActiveBlocks, dim3 grid_size, dim3 block_size,
-                         int isoVal, uint3 nxyz);
+                         int isoVal, uint3 nxyz, cuMesh& cm);
 };  // namespace genTriangles
 #endif

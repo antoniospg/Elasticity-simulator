@@ -43,7 +43,6 @@ __global__ void getActiveBlocks::getActiveBlocks(int2* g_blockMinMax, int n,
     bTestPerWarp[lane] = val;
   }
   __syncthreads();
-  printf("%d \n", numActiveBlocks[1]);
 
   bTest += (wid > 0) ? bTestPerWarp[wid - 1] : 0;
 

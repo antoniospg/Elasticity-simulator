@@ -11,8 +11,13 @@ class cuMesh {
 
   cuMesh(float3* h_vertices, uint3* h_indices, size_t n_vertices,
          size_t n_indices);
+
+  cuMesh(int n_vertices, int n_indices);
+
   cuMesh();
+
   ~cuMesh();
+
   void mapVBO();
   void mapEBO();
   void deleteVBO_CUDA();
