@@ -268,6 +268,7 @@ __global__ void genTriangles::generateTris(cudaTextureObject_t tex,
     tris[num_tris] = tri_idx;
     num_tris++;
   }
+  num_tris /= 3;
 
   int index_offset = getVertexOffset(num_tris);
   int index_offset_next = index_offset;
@@ -295,13 +296,13 @@ __global__ void genTriangles::generateTris(cudaTextureObject_t tex,
   if (active_edge.z)
     vertices[block_off + vertex_block_id.z - 1] = vertices_local[2];
 
-  for (size_t i = 0; i < num_tris; i += 3) {
+  for (size_t i = 0; i < num_tris; i++) {
     indices[index_offset + block_index_offset[blockIdx.x] + i].x =
-        block_off + tris[i];
+        block_off + tris[3 * i];
     indices[index_offset + block_index_offset[blockIdx.x] + i].y =
-        block_off + tris[i + 1];
+        block_off + tris[3 * i + 1];
     indices[index_offset + block_index_offset[blockIdx.x] + i].z =
-        block_off + tris[i + 2];
+        block_off + tris[3 * i + 2];
   }
 }
 
@@ -315,11 +316,11 @@ void genTriangles::generateTrisWrapper(cudaTextureObject_t tex,
   cudaMemcpyToSymbol(d_edgeTable, edgeTable, 256 * sizeof(int));
   cudaMemcpyToSymbol(d_triTable, triTable, 256 * 16 * sizeof(int));
 
-  // Debug
-  float3* h_vertices;
-  int3* h_indices;
-  h_vertices = (float3*)malloc(nxyz.x * nxyz.y * nxyz.z * sizeof(float3));
-  h_indices = (int3*)malloc(nxyz.x * nxyz.y * nxyz.z * sizeof(int3));
+  //// Debug
+  // float3* h_vertices;
+  // int3* h_indices;
+  // h_vertices = (float3*)malloc(nxyz.x * nxyz.y * nxyz.z * sizeof(float3));
+  // h_indices = (int3*)malloc(nxyz.x * nxyz.y * nxyz.z * sizeof(int3));
 
   // Global offset
   int* d_block_vertex_offset;
@@ -348,20 +349,20 @@ void genTriangles::generateTrisWrapper(cudaTextureObject_t tex,
       tex, activeBlocks, numActiveBlocks, nxyz, d_block_vertex_offset,
       d_block_index_offset, d_vertices, d_indices);
 
-  cudaMemcpy(block_vertex_offset, d_block_vertex_offset,
-             (grid_size.x + 1) * sizeof(int), cudaMemcpyDeviceToHost);
-  cudaMemcpy(block_index_offset, d_block_index_offset,
-             (grid_size.x + 1) * sizeof(int), cudaMemcpyDeviceToHost);
-  int num_vert = block_vertex_offset[grid_size.x - 1];
+  //cudaMemcpy(block_vertex_offset, d_block_vertex_offset,
+  //           (grid_size.x + 1) * sizeof(int), cudaMemcpyDeviceToHost);
+  //cudaMemcpy(block_index_offset, d_block_index_offset,
+  //           (grid_size.x + 1) * sizeof(int), cudaMemcpyDeviceToHost);
+  //int num_vert = block_vertex_offset[grid_size.x - 1];
 
-  for (int i = 0; i < grid_size.x + 1; i++) {
-    printf("%d %d %d \n", block_vertex_offset[i], block_index_offset[i], i);
-  }
+  //for (int i = 0; i < grid_size.x + 1; i++) {
+  //  printf("%d %d %d \n", block_vertex_offset[i], block_index_offset[i], i);
+  //}
 
-  cudaMemcpy(h_vertices, d_vertices, nxyz.x * nxyz.y * nxyz.z * sizeof(float3),
-             cudaMemcpyDeviceToHost);
-  cudaMemcpy(h_indices, d_indices, nxyz.x * nxyz.y * nxyz.z * sizeof(int3),
-             cudaMemcpyDeviceToHost);
+  //cudaMemcpy(h_vertices, d_vertices, nxyz.x * nxyz.y * nxyz.z * sizeof(float3),
+  //           cudaMemcpyDeviceToHost);
+  //cudaMemcpy(h_indices, d_indices, nxyz.x * nxyz.y * nxyz.z * sizeof(int3),
+  //           cudaMemcpyDeviceToHost);
 
   // cudaMemcpy(cm.d_vertices, h_vertices,
   //           nxyz.x * nxyz.y * nxyz.z * sizeof(float3),
@@ -370,11 +371,10 @@ void genTriangles::generateTrisWrapper(cudaTextureObject_t tex,
   // sizeof(int3),
   //           cudaMemcpyHostToDevice);
 
-  printf("****************\n");
-  for (int i = 0; i < 790; i++) {
-    printf("%f %f %f %d \n", h_vertices[i].x, h_vertices[i].y, h_vertices[i].z,
-           i);
-  }
+  //printf("****************\n");
+  //for (int i = 0; i < 1338; i++) {
+  //  printf("%d %d %d %d \n", h_indices[i].x, h_indices[i].y, h_indices[i].z, i);
+  //}
 
   cudaFree(d_block_vertex_offset);
   cudaFree(d_block_index_offset);
