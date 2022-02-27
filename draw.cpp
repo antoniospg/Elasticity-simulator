@@ -58,11 +58,11 @@ int main() {
   // Setup Dear ImGui style
   ImGui::StyleColorsDark();
 
-  VoxelModel vm("sphere.dat", 100);
+  VoxelModel vm("sphere.dat");
+  int isoVal = 0;
   Shader df("shaders/default.vert", "shaders/default.frag");
-  Model m("./icosahedron.obj");
   glEnable(GL_DEPTH_TEST);
-  glPolygonMode(GL_FRONT_AND_BACK, GL_POINT);
+  glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
   // glPolygonMode(GL_FRONT, GL_POLYGON);
 
   // render loop
@@ -105,8 +105,8 @@ int main() {
     ImGui::NewFrame();
 
     // render your GUI
-    ImGui::Begin("Demo window");
-    ImGui::Button("Hello!");
+    ImGui::Begin("Set isoVal");
+    ImGui::SliderInt("isoVal", &isoVal, 1, 1000);
     ImGui::End();
 
     // Render dear imgui into screen
@@ -136,7 +136,10 @@ int main() {
     df.setMat4("view", view);
     df.setMat4("model", model);
 
-    m.render(df);
+    //Model m("./second.obj");
+
+    //m.render(df);
+    vm.draw(df, isoVal);
 
     // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved
     // etc.)

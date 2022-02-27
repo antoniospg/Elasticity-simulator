@@ -1,8 +1,6 @@
 #ifndef GENTRIANGLES_CUH
 #define GENTRIANGLES_CUH
 
-#include "cuMesh.cuh"
-
 typedef uchar3 bool3;
 typedef uchar4 bool4;
 
@@ -24,14 +22,16 @@ __device__ int getVertexOffset(int nums);
 __device__ int borrowVertex(int3 pos, int edge, volatile int3* shem);
 
 __global__ void generateTris(cudaTextureObject_t tex, int* activeBlocks,
-                             int* numActiveBlocks, uint3 nxyz,
+                             int* numActiveBlocks, dim3 grid_size,
                              int* block_vertex_offset, int* block_index_offset,
                              float3* vertices, int3* indices);
 
 __device__ int getCubeidx(int3 pos, volatile int* shem);
 
-void generateTrisWrapper(cudaTextureObject_t tex, int* activeBlocks,
-                         int* numActiveBlocks, dim3 grid_size, dim3 block_size,
-                         int isoVal, uint3 nxyz, cuMesh& cm);
+int2 generateTrisWrapper(cudaTextureObject_t tex, int* activeBlocks,
+                         int* numActiveBlocks, dim3 grid_size3,
+                         dim3 block_size3, dim3 grid_size, int isoVal,
+                         uint3 nxyz, float3** d_vertices_ref,
+                         int3** d_indices_ref);
 };  // namespace genTriangles
 #endif

@@ -6,10 +6,10 @@
 #include <cstring>
 #include <iostream>
 #include <string>
+#include <vector>
 
 #include "computeTex.cuh"
 #include "constants.h"
-#include "cuMesh.cuh"
 #include "genTriangles.cuh"
 #include "getActiveBlocks.cuh"
 #include "mesh.hpp"
@@ -23,23 +23,18 @@ class VoxelModel {
   VoxelLoader vl;
   ComputeTex ct;
   uint n_x, n_y, n_z;
-  int isoVal;
   dim3 block_size, grid_size;
   int2* d_blockMinMax;
 
  public:
-  Mesh mesh;
+  float3* d_vertices;
+  int3* d_indices;
 
-  VoxelModel(string path, int isoVal)
-      : vl(path),
-        ct(vl.pData, vl.n_x, vl.n_y, vl.n_z),
-        isoVal(isoVal),
-        mesh(4096, 4096) {
+  VoxelModel(string path) : vl(path), ct(vl.pData, vl.n_x, vl.n_y, vl.n_z) {
     n_x = vl.n_x, n_y = vl.n_y, n_z = vl.n_z;
     uint n = n_x * n_y * n_z;
 
     // First Kernel Launch
-    cout << "First kernel : " << endl;
     block_size = {8, 8, 8};
     grid_size = {(n_x + block_size.x - 1) / block_size.x,
                  (n_y + block_size.y - 1) / block_size.y,
@@ -49,31 +44,14 @@ class VoxelModel {
     cudaMalloc(&d_blockMinMax, num_blocks * sizeof(int2));
     minMax::blockReduceMinMaxWrapper(ct.texObj, n, d_blockMinMax, grid_size,
                                      block_size);
-    cudaDeviceSynchronize();
 
-    // Debug First Kernel
-    int2* h_blockMinMax = new int2[num_blocks];
-    cudaMemcpy(h_blockMinMax, d_blockMinMax, num_blocks * sizeof(int2),
-               cudaMemcpyDeviceToHost);
-
-    cout << "Min max Kernel : " << endl;
-    for (int i = 0; i < num_blocks; i++) {
-      cout << "min : " << h_blockMinMax[i].x << " max : " << h_blockMinMax[i].y
-           << endl;
-    }
-    delete h_blockMinMax;
-
-    draw();
+    d_vertices = nullptr;
+    d_indices = nullptr;
   }
 
-  void draw() {
+  int2 generate(int isoVal) {
     int num_blocks = grid_size.x * grid_size.y * grid_size.z;
-    // Second Kernel Launch
-    // cout << "Second kernel : " << endl;
-
-    int* h_activeBlkNum = new int[num_blocks];
-    memset(h_activeBlkNum, -1, num_blocks * sizeof(int));
-
+    //
     // Second Kernel Launch
     int* d_activeBlkNum;
     int* d_numActiveBlocks;
@@ -89,36 +67,38 @@ class VoxelModel {
     getActiveBlocks::getActiveBlocksWrapper(d_blockMinMax, num_blocks,
                                             d_activeBlkNum, d_numActiveBlocks,
                                             grid_size2, block_size2, isoVal);
-    cudaDeviceSynchronize();
 
     int* d_numActiveBlk = d_numActiveBlocks + 1;
 
-    // Debug second kernel
     int numActiveBlk = -1;
     cudaMemcpy(&numActiveBlk, d_numActiveBlk, sizeof(int),
                cudaMemcpyDeviceToHost);
-    // cout << "    " << numActiveBlk << endl;
-
-    cudaMemcpy(h_activeBlkNum, d_activeBlkNum, num_blocks * sizeof(int),
-               cudaMemcpyDeviceToHost);
-
-    // for (int i = 0; i < 8; i++) cout << h_activeBlkNum[i] << " " << i <<
-    // endl;
 
     // Third Kernel Launch
-    // cout << "Third kernel : " << endl;
     dim3 block_size3 = block_size;
     int num_blocks3 = block_size3.x * block_size.y + block_size.z;
     dim3 grid_size3 = {numActiveBlk};
     uint3 nxyz = uint3{n_x, n_y, n_z};
 
-    genTriangles::generateTrisWrapper(ct.texObj, d_activeBlkNum, d_numActiveBlk,
-                                      grid_size3, block_size3, isoVal, nxyz,
-                                      mesh.cm);
+    if (d_vertices != nullptr) cudaFree(d_vertices);
+    if (d_indices != nullptr) cudaFree(d_indices);
+
+    int2 nums = genTriangles::generateTrisWrapper(
+        ct.texObj, d_activeBlkNum, d_numActiveBlk, grid_size3, block_size3,
+        grid_size, isoVal, nxyz, &d_vertices, &d_indices);
 
     cudaFree(d_activeBlkNum);
     cudaFree(d_numActiveBlocks);
-    delete h_activeBlkNum;
+    return nums;
+  }
+
+  void draw(Shader& sh, int isoVal) {
+    int2 nums = generate(isoVal);
+
+    if (nums.x <=0 || nums.y <= 0) return ;
+    Mesh* mesh = new Mesh(d_vertices, d_indices, nums.x, nums.y, true);
+    mesh->render(sh);
+    delete mesh;
   }
 
   ~VoxelModel() { cudaFree(d_blockMinMax); }

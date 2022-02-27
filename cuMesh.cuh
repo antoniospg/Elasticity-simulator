@@ -9,10 +9,9 @@ class cuMesh {
   int3* d_indices;
   uint VBO, EBO, VAO;
 
-  cuMesh(float3* h_vertices, uint3* h_indices, size_t n_vertices,
-         size_t n_indices);
+  cuMesh(float3* vertices_in, int3* indices_in, size_t n_vertices,
+         size_t n_indices, bool device_pointers);
 
-  cuMesh(int n_vertices, int n_indices);
 
   cuMesh();
 

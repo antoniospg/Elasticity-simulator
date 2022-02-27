@@ -1,8 +1,13 @@
 #include <cooperative_groups.h>
 #include <stdio.h>
 
+#include <iostream>
+
 #include "constants.h"
 #include "genTriangles.cuh"
+
+#define INF 1e12
+using namespace std;
 
 namespace cg = cooperative_groups;
 
@@ -43,31 +48,37 @@ __device__ int genTriangles::getCubeidx(int3 pos, volatile int* shem) {
                         {pos.x, pos.y - 1, pos.z + 1}};
 
   int cubeindex = 0;
-  if (pos_offset[0].x >= blockDim.x || pos_offset[0].y < 0 ||
-      pos_offset[0].z >= blockDim.z || shem[offsets[0]] < d_isoVal)
+  if (pos_offset[0].x < blockDim.x && pos_offset[0].y >= 0 &&
+      pos_offset[0].z < blockDim.z && shem[offsets[0]] < d_isoVal)
     cubeindex |= 1;
-  if (pos_offset[1].x >= blockDim.x || pos_offset[1].y < 0 ||
-      pos_offset[1].z >= blockDim.z || shem[offsets[1]] < d_isoVal)
-    cubeindex |= 2;
-  if (pos_offset[2].x >= blockDim.x || pos_offset[2].y < 0 ||
-      pos_offset[2].z >= blockDim.z || shem[offsets[2]] < d_isoVal)
-    cubeindex |= 4;
-  if (pos_offset[3].x >= blockDim.x || pos_offset[3].y < 0 ||
-      pos_offset[3].z >= blockDim.z || shem[offsets[3]] < d_isoVal)
-    cubeindex |= 8;
-  if (pos_offset[4].x >= blockDim.x || pos_offset[4].y < 0 ||
-      pos_offset[4].z >= blockDim.z || shem[offsets[4]] < d_isoVal)
-    cubeindex |= 16;
-  if (pos_offset[5].x >= blockDim.x || pos_offset[5].y < 0 ||
-      pos_offset[5].z >= blockDim.z || shem[offsets[5]] < d_isoVal)
-    cubeindex |= 32;
-  if (pos_offset[6].x >= blockDim.x || pos_offset[6].y < 0 ||
-      pos_offset[6].z >= blockDim.z || shem[offsets[6]] < d_isoVal)
-    cubeindex |= 64;
-  if (pos_offset[7].x >= blockDim.x || pos_offset[7].y < 0 ||
-      pos_offset[7].z >= blockDim.z || shem[offsets[7]] < d_isoVal)
-    cubeindex |= 128;
 
+  if (pos_offset[1].x < blockDim.x && pos_offset[1].y >= 0 &&
+      pos_offset[1].z < blockDim.z && shem[offsets[1]] < d_isoVal)
+    cubeindex |= 2;
+
+  if (pos_offset[2].x < blockDim.x && pos_offset[2].y >= 0 &&
+      pos_offset[2].z < blockDim.z && shem[offsets[2]] < d_isoVal)
+    cubeindex |= 4;
+
+  if (pos_offset[3].x < blockDim.x && pos_offset[3].y >= 0 &&
+      pos_offset[3].z < blockDim.z && shem[offsets[3]] < d_isoVal)
+    cubeindex |= 8;
+
+  if (pos_offset[4].x < blockDim.x && pos_offset[4].y >= 0 &&
+      pos_offset[4].z < blockDim.z && shem[offsets[4]] < d_isoVal)
+    cubeindex |= 16;
+
+  if (pos_offset[5].x < blockDim.x && pos_offset[5].y >= 0 &&
+      pos_offset[5].z < blockDim.z && shem[offsets[5]] < d_isoVal)
+    cubeindex |= 32;
+
+  if (pos_offset[6].x < blockDim.x && pos_offset[6].y >= 0 &&
+      pos_offset[6].z < blockDim.z && shem[offsets[6]] < d_isoVal)
+    cubeindex |= 64;
+
+  if (pos_offset[7].x < blockDim.x && pos_offset[7].y >= 0 &&
+      pos_offset[7].z < blockDim.z && shem[offsets[7]] < d_isoVal)
+    cubeindex |= 128;
   return cubeindex;
 }
 
@@ -113,32 +124,9 @@ __device__ bool3 genTriangles::getVertex(int3 pos, bool3 active_edges,
     } else if ((check_offset[i].x >= blockDim.x || check_offset[i].y < 0 ||
                 check_offset[i].z >= blockDim.z) &&
                active_edges_array[i]) {
-      vertices[i] = lerpVertex(pos, pos_neigh[i], shem[offset[0]], 0);
+      vertices[i] = lerpVertex(pos, pos_neigh[i], shem[offset[0]], INF);
     }
   }
-  // if (shem[offset[0]] < d_isoVal) return bool3{0, 0, 0};
-
-  // int edge_offset[3] = {0, 1, 2};
-  // bool active_edge[3] = {0, 0, 0};
-
-  // for (size_t i = 0; i < 3; i++) {
-  //  if (pos_neigh[i].x < blockDim.x && pos_neigh[i].y >= 0 &&
-  //      pos_neigh[i].z < blockDim.z && shem[offset[i + 1]] < d_isoVal) {
-  //    vertices[edge_offset[i]] =
-  //        lerpVertex(pos, pos_neigh[i], shem[offset[0]], shem[offset[i + 1]]);
-
-  //    active_edge[i] = true;
-  //  } else if (pos_neigh[i].x >= blockDim.x || pos_neigh[i].y < 0 ||
-  //             pos_neigh[i].z >= blockDim.z) {
-  //    vertices[edge_offset[i]] =
-  //        lerpVertex(pos, pos_neigh[i], shem[offset[0]], 0);
-
-  //    active_edge[i] = true;
-  //  } else
-  //    active_edge[i] = false;
-  //}
-
-  // return bool3{active_edge[0], active_edge[1], active_edge[2]};
 }
 
 __device__ __inline__ int genTriangles::warpReduceScan(int val, int laneid) {
@@ -211,7 +199,7 @@ __device__ int genTriangles::borrowVertex(int3 pos, int edge,
 
 __global__ void genTriangles::generateTris(cudaTextureObject_t tex,
                                            int* activeBlocks,
-                                           int* numActiveBlocks, uint3 nxyz,
+                                           int* numActiveBlocks, dim3 grid_size,
                                            int* block_vertex_offset,
                                            int* block_index_offset,
                                            float3* vertices, int3* indices) {
@@ -220,7 +208,9 @@ __global__ void genTriangles::generateTris(cudaTextureObject_t tex,
   int tid_block = threadIdx.x + blockDim.x * threadIdx.y +
                   blockDim.x * blockDim.y * threadIdx.z;
 
-  int3 block_pos = int3{block_id % 2, (block_id / 2) % (2), block_id / (2 * 2)};
+  int3 block_pos = int3{block_id % (int)grid_size.x,
+                        (block_id / (int)grid_size.x) % ((int)grid_size.y),
+                        block_id / ((int)grid_size.x * (int)grid_size.y)};
   int3 pos = {threadIdx.x + block_pos.x * blockDim.x,
               threadIdx.y + block_pos.y * blockDim.y,
               threadIdx.z + block_pos.z * blockDim.z};
@@ -298,42 +288,38 @@ __global__ void genTriangles::generateTris(cudaTextureObject_t tex,
 
   for (size_t i = 0; i < num_tris; i++) {
     indices[index_offset + block_index_offset[blockIdx.x] + i].x =
-        block_off + tris[3 * i];
+        block_off + tris[3 * i] - 1;
     indices[index_offset + block_index_offset[blockIdx.x] + i].y =
-        block_off + tris[3 * i + 1];
+        block_off + tris[3 * i + 1] - 1;
     indices[index_offset + block_index_offset[blockIdx.x] + i].z =
-        block_off + tris[3 * i + 2];
+        block_off + tris[3 * i + 2] - 1;
   }
 }
 
-void genTriangles::generateTrisWrapper(cudaTextureObject_t tex,
+int2 genTriangles::generateTrisWrapper(cudaTextureObject_t tex,
                                        int* activeBlocks, int* numActiveBlocks,
-                                       dim3 grid_size, dim3 block_size,
-                                       int isoVal, uint3 nxyz, cuMesh& cm) {
+                                       dim3 grid_size3, dim3 block_size3,
+                                       dim3 grid_size, int isoVal, uint3 nxyz,
+                                       float3** d_vertices_ref,
+                                       int3** d_indices_ref) {
   cudaMemcpyToSymbol(d_isoVal, &isoVal, sizeof(int));
   cudaMemcpyToSymbol(d_neighbourMappingTable, neighbourMappingTable,
                      12 * 4 * sizeof(int));
   cudaMemcpyToSymbol(d_edgeTable, edgeTable, 256 * sizeof(int));
   cudaMemcpyToSymbol(d_triTable, triTable, 256 * 16 * sizeof(int));
 
-  //// Debug
-  // float3* h_vertices;
-  // int3* h_indices;
-  // h_vertices = (float3*)malloc(nxyz.x * nxyz.y * nxyz.z * sizeof(float3));
-  // h_indices = (int3*)malloc(nxyz.x * nxyz.y * nxyz.z * sizeof(int3));
-
   // Global offset
   int* d_block_vertex_offset;
   int* d_block_index_offset;
 
   cudaMalloc(&d_block_vertex_offset,
-             (block_size.x * block_size.y * block_size.z + 1) * sizeof(int));
+             (block_size3.x * block_size3.y * block_size3.z + 1) * sizeof(int));
   cudaMalloc(&d_block_index_offset,
-             (block_size.x * block_size.y * block_size.z + 1) * sizeof(int));
+             (block_size3.x * block_size3.y * block_size3.z + 1) * sizeof(int));
   cudaMemset(d_block_vertex_offset, 0,
-             (block_size.x * block_size.y * block_size.z + 1) * sizeof(int));
+             (block_size3.x * block_size3.y * block_size3.z + 1) * sizeof(int));
   cudaMemset(d_block_index_offset, 0,
-             (block_size.x * block_size.y * block_size.z + 1) * sizeof(int));
+             (block_size3.x * block_size3.y * block_size3.z + 1) * sizeof(int));
 
   // store vertices / indices
   float3* d_vertices;
@@ -341,43 +327,21 @@ void genTriangles::generateTrisWrapper(cudaTextureObject_t tex,
   cudaMalloc(&d_vertices, nxyz.x * nxyz.y * nxyz.z * sizeof(float3));
   cudaMalloc(&d_indices, nxyz.x * nxyz.y * nxyz.z * sizeof(int3));
 
-  // Debug
-  int* block_vertex_offset = (int*)malloc(grid_size.x * sizeof(int));
-  int* block_index_offset = (int*)malloc(grid_size.x * sizeof(int));
-
-  generateTris<<<grid_size, block_size>>>(
-      tex, activeBlocks, numActiveBlocks, nxyz, d_block_vertex_offset,
+  generateTris<<<grid_size3, block_size3>>>(
+      tex, activeBlocks, numActiveBlocks, grid_size, d_block_vertex_offset,
       d_block_index_offset, d_vertices, d_indices);
 
-  //cudaMemcpy(block_vertex_offset, d_block_vertex_offset,
-  //           (grid_size.x + 1) * sizeof(int), cudaMemcpyDeviceToHost);
-  //cudaMemcpy(block_index_offset, d_block_index_offset,
-  //           (grid_size.x + 1) * sizeof(int), cudaMemcpyDeviceToHost);
-  //int num_vert = block_vertex_offset[grid_size.x - 1];
+  int num_vertices = 0, num_indices = 0;
+  cudaMemcpy(&num_vertices, d_block_vertex_offset + grid_size3.x + 1,
+             sizeof(int), cudaMemcpyDeviceToHost);
+  cudaMemcpy(&num_indices, d_block_index_offset + grid_size3.x + 1, sizeof(int),
+             cudaMemcpyDeviceToHost);
 
-  //for (int i = 0; i < grid_size.x + 1; i++) {
-  //  printf("%d %d %d \n", block_vertex_offset[i], block_index_offset[i], i);
-  //}
-
-  //cudaMemcpy(h_vertices, d_vertices, nxyz.x * nxyz.y * nxyz.z * sizeof(float3),
-  //           cudaMemcpyDeviceToHost);
-  //cudaMemcpy(h_indices, d_indices, nxyz.x * nxyz.y * nxyz.z * sizeof(int3),
-  //           cudaMemcpyDeviceToHost);
-
-  // cudaMemcpy(cm.d_vertices, h_vertices,
-  //           nxyz.x * nxyz.y * nxyz.z * sizeof(float3),
-  //           cudaMemcpyHostToDevice);
-  // cudaMemcpy(cm.d_indices, h_indices, nxyz.x * nxyz.y * nxyz.z *
-  // sizeof(int3),
-  //           cudaMemcpyHostToDevice);
-
-  //printf("****************\n");
-  //for (int i = 0; i < 1338; i++) {
-  //  printf("%d %d %d %d \n", h_indices[i].x, h_indices[i].y, h_indices[i].z, i);
-  //}
+  *d_vertices_ref = d_vertices;
+  *d_indices_ref = d_indices;
 
   cudaFree(d_block_vertex_offset);
   cudaFree(d_block_index_offset);
-  // cudaFree(d_vertices);
-  // cudaFree(d_indices);
+
+  return int2{num_vertices, num_indices};
 }

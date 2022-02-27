@@ -14,6 +14,7 @@
 
 class Model {
  public:
+  std::vector<Mesh> meshes;
   Mesh processMesh(aiMesh* mesh, const aiScene* scene) {
     std::vector<Vertex> vertices;
     std::vector<unsigned int> indices;
@@ -75,7 +76,6 @@ class Model {
   }
 
  private:
-  std::vector<Mesh> meshes;
   std::string directory;
 };
 

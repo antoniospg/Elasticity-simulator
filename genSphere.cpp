@@ -6,7 +6,8 @@
 using namespace std;
 
 int main() {
-  int nx = 16, ny = 16, nz = 16;
+  int nx = 512, ny = 512, nz = 512;
+  int cx = 0, cy = 0, cz = 0;
   int* data = (int*)malloc(nx * ny * nz * sizeof(int));
 
   ofstream file("sphere.dat");
@@ -18,11 +19,13 @@ int main() {
   for (int i = 0; i < nx; i++)
     for (int j = 0; j < ny; j++)
       for (int k = 0; k < nz; k++) {
-        int val = i * i + j * j + k * k;
+        int val =
+            (i - cx) * (i - cx) + (j - cy) * (j - cy) + (k - cz) * (k - cz);
         data[k + nz * j + nz * ny * i] = val;
         file.write((char*)&val, sizeof(int));
       }
 
+#ifdef PRINT
   for (int k = 0; k < nz; k++) {
     for (int i = 0; i < nx; i++) {
       for (int j = 0; j < ny; j++) {
@@ -32,6 +35,7 @@ int main() {
     }
     cout << "\n\n\n" << endl;
   }
+#endif
 
   free(data);
   file.close();
