@@ -24,7 +24,6 @@ __global__ void minMax::blockReduceMinMax(cudaTextureObject_t tex, int n, int2* 
              blockIdx.x);
   int tid = tid_block + (blockDim.x * blockDim.y * blockDim.z) * bid;
 
-  if (tid >= n) return;
 
   int lane = tid_block % WP_SIZE;
   int wid = tid_block / WP_SIZE;

@@ -1,12 +1,13 @@
 #include <stdlib.h>
 
+#define PRINT
 #include <fstream>
 #include <iostream>
 
 using namespace std;
 
 int main() {
-  int nx = 512, ny = 512, nz = 512;
+  int nx = 32, ny = 32, nz = 32;
   int cx = 0, cy = 0, cz = 0;
   int* data = (int*)malloc(nx * ny * nz * sizeof(int));
 
@@ -20,7 +21,7 @@ int main() {
     for (int j = 0; j < ny; j++)
       for (int k = 0; k < nz; k++) {
         int val =
-            (i - cx) * (i - cx) + (j - cy) * (j - cy) + (k - cz) * (k - cz);
+            ((i - cx) * (i - cx) + (j - cy) * (j - cy) + (k - cz) * (k - cz))%1000;
         data[k + nz * j + nz * ny * i] = val;
         file.write((char*)&val, sizeof(int));
       }

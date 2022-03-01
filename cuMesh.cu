@@ -29,6 +29,7 @@ cuMesh::cuMesh(float3* vertices, int3* indices, size_t n_vertices,
   if (device_pointers) {
     cudaMemcpy(d_vertices, vertices, n_vertices * sizeof(float3),
                cudaMemcpyDeviceToDevice);
+    cudaDeviceSynchronize();
     cudaMemcpy(d_indices, indices, n_indices * sizeof(uint3),
                cudaMemcpyDeviceToDevice);
     cudaDeviceSynchronize();

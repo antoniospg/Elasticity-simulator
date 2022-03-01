@@ -58,7 +58,7 @@ int main() {
   // Setup Dear ImGui style
   ImGui::StyleColorsDark();
 
-  VoxelModel vm("sphere.dat");
+  VoxelModel vm("mri.raw");
   int isoVal = 0;
   Shader df("shaders/default.vert", "shaders/default.frag");
   glEnable(GL_DEPTH_TEST);

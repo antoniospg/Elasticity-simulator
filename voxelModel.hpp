@@ -4,6 +4,7 @@
 #include <cuda_runtime.h>
 
 #include <cstring>
+#include <fstream>
 #include <iostream>
 #include <string>
 #include <vector>
@@ -22,9 +23,15 @@ class VoxelModel {
  private:
   VoxelLoader vl;
   ComputeTex ct;
+
   uint n_x, n_y, n_z;
   dim3 block_size, grid_size;
+
   int2* d_blockMinMax;
+  int* d_activeBlkNum;
+  int* d_numActiveBlk;
+  int* d_numActiveBlocks;
+  int numActiveBlk;
 
  public:
   float3* d_vertices;
@@ -45,17 +52,18 @@ class VoxelModel {
     minMax::blockReduceMinMaxWrapper(ct.texObj, n, d_blockMinMax, grid_size,
                                      block_size);
 
-    d_vertices = nullptr;
-    d_indices = nullptr;
-  }
+#ifdef DEBUG1
+    int2* h_minmax = new int2[num_blocks];
+    int count = 0;
+    cudaMemcpy(h_minmax, d_blockMinMax, num_blocks * sizeof(int2),
+               cudaMemcpyDeviceToHost);
+    for (size_t i = 0; i < num_blocks; i++) {
+      if (h_minmax[i].x != 0 && h_minmax[i].y != 0) count++;
+    }
+    cout << "count : " << count << endl;
 
-  int2 generate(int isoVal) {
-    int num_blocks = grid_size.x * grid_size.y * grid_size.z;
-    //
+#endif
     // Second Kernel Launch
-    int* d_activeBlkNum;
-    int* d_numActiveBlocks;
-
     cudaMalloc(&d_activeBlkNum, num_blocks * sizeof(int));
     cudaMalloc(&d_numActiveBlocks, num_blocks * sizeof(int));
     cudaMemset(d_activeBlkNum, 0, num_blocks * sizeof(int));
@@ -66,13 +74,15 @@ class VoxelModel {
 
     getActiveBlocks::getActiveBlocksWrapper(d_blockMinMax, num_blocks,
                                             d_activeBlkNum, d_numActiveBlocks,
-                                            grid_size2, block_size2, isoVal);
+                                            grid_size2, block_size2, 0);
 
-    int* d_numActiveBlk = d_numActiveBlocks + 1;
-
-    int numActiveBlk = -1;
+    d_numActiveBlk = d_numActiveBlocks + grid_size2; 
     cudaMemcpy(&numActiveBlk, d_numActiveBlk, sizeof(int),
                cudaMemcpyDeviceToHost);
+  }
+
+  int2 generate(int isoVal) {
+    int num_blocks = grid_size.x * grid_size.y * grid_size.z;
 
     // Third Kernel Launch
     dim3 block_size3 = block_size;
@@ -87,21 +97,45 @@ class VoxelModel {
         ct.texObj, d_activeBlkNum, d_numActiveBlk, grid_size3, block_size3,
         grid_size, isoVal, nxyz, &d_vertices, &d_indices);
 
-    cudaFree(d_activeBlkNum);
-    cudaFree(d_numActiveBlocks);
     return nums;
   }
 
   void draw(Shader& sh, int isoVal) {
     int2 nums = generate(isoVal);
 
-    if (nums.x <=0 || nums.y <= 0) return ;
+#ifdef DEBUG3
+    float3* h_vertices = new float3[nums.x];
+    int3* h_indices = new int3[nums.y];
+    cudaMemcpy(h_vertices, d_vertices, nums.x * sizeof(float3),
+               cudaMemcpyDeviceToHost);
+    cudaMemcpy(h_indices, d_indices, nums.y * sizeof(int3),
+               cudaMemcpyDeviceToHost);
+
+    ofstream f_debug("debug.obj");
+    for (size_t i = 0; i < nums.x; i++) {
+      f_debug << "v " << h_vertices[i].x << " " << h_vertices[i].y << " "
+           << h_vertices[i].z << " " << endl;
+    }
+    f_debug << endl;
+    for (size_t i = 0; i < nums.y; i++) {
+      f_debug  << "f " << h_indices[i].x + 1 << " " << h_indices[i].y + 1 << " "
+           << h_indices[i].z + 1 << " " << endl;
+    }
+    f_debug.close();
+    exit(0);
+#endif
+
+    if (nums.x <= 0 || nums.y <= 0) return;
     Mesh* mesh = new Mesh(d_vertices, d_indices, nums.x, nums.y, true);
     mesh->render(sh);
     delete mesh;
   }
 
-  ~VoxelModel() { cudaFree(d_blockMinMax); }
+  ~VoxelModel() {
+    cudaFree(d_blockMinMax);
+    cudaFree(d_numActiveBlocks);
+    cudaFree(d_activeBlkNum);
+  }
 };
 
 #endif

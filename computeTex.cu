@@ -1,4 +1,6 @@
 #include "computeTex.cuh"
+#include <iostream>
+using namespace std;
 
 ComputeTex::ComputeTex() {
   nx = 0;
@@ -15,6 +17,7 @@ ComputeTex ::ComputeTex(int *h_data, int nx, int ny, int nz) {
       cudaCreateChannelDesc(32, 0, 0, 0, cudaChannelFormatKindSigned);
   cudaMalloc3DArray(&cuArray, &channeldesc, volumeSize);
 
+  
   // copy data to 3d array
   cudaMemcpy3DParms copyParams = {0};
   copyParams.srcPtr =

@@ -15,6 +15,8 @@ __constant__ int d_neighbourMappingTable[12][4];
 __constant__ int d_edgeTable[256];
 __constant__ int d_triTable[256][16];
 __constant__ int d_isoVal;
+__device__ int my_block_count3_0 = 0;
+__device__ int my_block_count3_1 = 0;
 
 __device__ int genTriangles::getCubeidx(int3 pos, volatile int* shem) {
   int tid_block = threadIdx.x + blockDim.x * threadIdx.y +
@@ -47,38 +49,17 @@ __device__ int genTriangles::getCubeidx(int3 pos, volatile int* shem) {
                         {pos.x + 1, pos.y - 1, pos.z + 1},
                         {pos.x, pos.y - 1, pos.z + 1}};
 
-  int cubeindex = 0;
-  if (pos_offset[0].x < blockDim.x && pos_offset[0].y >= 0 &&
-      pos_offset[0].z < blockDim.z && shem[offsets[0]] < d_isoVal)
-    cubeindex |= 1;
+  int cubeindex = 0, increment = 1;
+  for (size_t i = 0; i < 8; i++) {
+    if (pos_offset[i].x < blockDim.x && pos_offset[i].y >= 0 &&
+        pos_offset[i].z < blockDim.z && shem[offsets[i]] < d_isoVal)
+      cubeindex |= increment;
+    else if (pos_offset[i].x >= blockDim.x || pos_offset[i].y < 0 ||
+             pos_offset[i].z >= blockDim.z)
+      cubeindex |= increment;
+    increment *= 2;
+  }
 
-  if (pos_offset[1].x < blockDim.x && pos_offset[1].y >= 0 &&
-      pos_offset[1].z < blockDim.z && shem[offsets[1]] < d_isoVal)
-    cubeindex |= 2;
-
-  if (pos_offset[2].x < blockDim.x && pos_offset[2].y >= 0 &&
-      pos_offset[2].z < blockDim.z && shem[offsets[2]] < d_isoVal)
-    cubeindex |= 4;
-
-  if (pos_offset[3].x < blockDim.x && pos_offset[3].y >= 0 &&
-      pos_offset[3].z < blockDim.z && shem[offsets[3]] < d_isoVal)
-    cubeindex |= 8;
-
-  if (pos_offset[4].x < blockDim.x && pos_offset[4].y >= 0 &&
-      pos_offset[4].z < blockDim.z && shem[offsets[4]] < d_isoVal)
-    cubeindex |= 16;
-
-  if (pos_offset[5].x < blockDim.x && pos_offset[5].y >= 0 &&
-      pos_offset[5].z < blockDim.z && shem[offsets[5]] < d_isoVal)
-    cubeindex |= 32;
-
-  if (pos_offset[6].x < blockDim.x && pos_offset[6].y >= 0 &&
-      pos_offset[6].z < blockDim.z && shem[offsets[6]] < d_isoVal)
-    cubeindex |= 64;
-
-  if (pos_offset[7].x < blockDim.x && pos_offset[7].y >= 0 &&
-      pos_offset[7].z < blockDim.z && shem[offsets[7]] < d_isoVal)
-    cubeindex |= 128;
   return cubeindex;
 }
 
@@ -94,7 +75,7 @@ __device__ __inline__ float3 genTriangles::lerpVertex(int3 pos1, int3 pos2,
   return vertex;
 }
 
-__device__ bool3 genTriangles::getVertex(int3 pos, bool3 active_edges,
+__device__ bool3 genTriangles::getVertex(int3 pos, bool3& active_edges,
                                          volatile int* shem, float3* vertices) {
   int offset[4] = {(threadIdx.x) + blockDim.x * (threadIdx.y) +
                        blockDim.x * blockDim.y * (threadIdx.z),
@@ -124,7 +105,7 @@ __device__ bool3 genTriangles::getVertex(int3 pos, bool3 active_edges,
     } else if ((check_offset[i].x >= blockDim.x || check_offset[i].y < 0 ||
                 check_offset[i].z >= blockDim.z) &&
                active_edges_array[i]) {
-      vertices[i] = lerpVertex(pos, pos_neigh[i], shem[offset[0]], INF);
+      vertices[i] = lerpVertex(pos, pos_neigh[i], 0, INF);
     }
   }
 }
@@ -215,6 +196,10 @@ __global__ void genTriangles::generateTris(cudaTextureObject_t tex,
               threadIdx.y + block_pos.y * blockDim.y,
               threadIdx.z + block_pos.z * blockDim.z};
 
+  __shared__ unsigned int my_blockId;
+  if (tid_block == 0) my_blockId = atomicAdd(&my_block_count3_0, 1);
+  __syncthreads();
+
   __shared__ int voxels[1024];
   voxels[tid_block] = tex3D<int>(tex, pos.x, pos.y, pos.z);
   __syncthreads();
@@ -265,14 +250,18 @@ __global__ void genTriangles::generateTris(cudaTextureObject_t tex,
   index_offset -= num_tris;
 
   // Global Offset
-  if (tid_block == (blockDim.x * blockDim.y * blockDim.z - 1)) {
+  if (tid_block == blockDim.x * blockDim.y * blockDim.z - 1) {
     int2 block_sum = {vertex_offset_next, index_offset_next};
 
-    for (int i = blockIdx.x + 1; i < blockDim.x * blockDim.y * blockDim.z + 1;
-         i++) {
+    for (int i = blockIdx.x + 1; i < gridDim.x + 1; i++) {
       atomicAdd(block_vertex_offset + i, block_sum.x);
       atomicAdd(block_index_offset + i, block_sum.y);
+      __threadfence();
     }
+
+    atomicAdd(&my_block_count3_1, 1);
+    do {
+    } while (atomicAdd(&my_block_count3_1, 0) != my_block_count3_0);
   }
   __syncthreads();
 
@@ -296,6 +285,11 @@ __global__ void genTriangles::generateTris(cudaTextureObject_t tex,
   }
 }
 
+__global__ void genTriangles::setGlobal() {
+  my_block_count3_0 = 0;
+  my_block_count3_1 = 0;
+}
+
 int2 genTriangles::generateTrisWrapper(cudaTextureObject_t tex,
                                        int* activeBlocks, int* numActiveBlocks,
                                        dim3 grid_size3, dim3 block_size3,
@@ -312,29 +306,30 @@ int2 genTriangles::generateTrisWrapper(cudaTextureObject_t tex,
   int* d_block_vertex_offset;
   int* d_block_index_offset;
 
-  cudaMalloc(&d_block_vertex_offset,
-             (block_size3.x * block_size3.y * block_size3.z + 1) * sizeof(int));
-  cudaMalloc(&d_block_index_offset,
-             (block_size3.x * block_size3.y * block_size3.z + 1) * sizeof(int));
-  cudaMemset(d_block_vertex_offset, 0,
-             (block_size3.x * block_size3.y * block_size3.z + 1) * sizeof(int));
-  cudaMemset(d_block_index_offset, 0,
-             (block_size3.x * block_size3.y * block_size3.z + 1) * sizeof(int));
+  cudaMalloc(&d_block_vertex_offset, (grid_size3.x + 1) * sizeof(int));
+  cudaMalloc(&d_block_index_offset, (grid_size3.x + 1) * sizeof(int));
+  cudaMemset(d_block_vertex_offset, 0, (grid_size3.x + 1) * sizeof(int));
+  cudaMemset(d_block_index_offset, 0, (grid_size3.x + 1) * sizeof(int));
 
   // store vertices / indices
   float3* d_vertices;
   int3* d_indices;
   cudaMalloc(&d_vertices, nxyz.x * nxyz.y * nxyz.z * sizeof(float3));
   cudaMalloc(&d_indices, nxyz.x * nxyz.y * nxyz.z * sizeof(int3));
+  cudaMemset(d_vertices, 0, nxyz.x * nxyz.y * nxyz.z * sizeof(float3));
+  cudaMemset(d_indices, 0, nxyz.x * nxyz.y * nxyz.z * sizeof(int3));
+
+  setGlobal<<<1, 1>>>();
+  cudaDeviceSynchronize();
 
   generateTris<<<grid_size3, block_size3>>>(
       tex, activeBlocks, numActiveBlocks, grid_size, d_block_vertex_offset,
       d_block_index_offset, d_vertices, d_indices);
 
   int num_vertices = 0, num_indices = 0;
-  cudaMemcpy(&num_vertices, d_block_vertex_offset + grid_size3.x + 1,
-             sizeof(int), cudaMemcpyDeviceToHost);
-  cudaMemcpy(&num_indices, d_block_index_offset + grid_size3.x + 1, sizeof(int),
+  cudaMemcpy(&num_vertices, d_block_vertex_offset + grid_size3.x, sizeof(int),
+             cudaMemcpyDeviceToHost);
+  cudaMemcpy(&num_indices, d_block_index_offset + grid_size3.x, sizeof(int),
              cudaMemcpyDeviceToHost);
 
   *d_vertices_ref = d_vertices;

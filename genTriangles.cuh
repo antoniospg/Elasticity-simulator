@@ -10,7 +10,7 @@ __device__ __inline__ float3 lerpVertex(int3 pos1, int3 pos2, int v1, int v2);
 
 __device__ bool3 get_active_edges(int3 pos, volatile int* shem);
 
-__device__ bool3 getVertex(int3 pos, bool3 active_edges, volatile int* shem,
+__device__ bool3 getVertex(int3 pos, bool3& active_edges, volatile int* shem,
                            float3* vertices);
 
 __device__ __inline__ bool get_neighbor_mapping(int edge, volatile bool3* shem);
@@ -25,6 +25,7 @@ __global__ void generateTris(cudaTextureObject_t tex, int* activeBlocks,
                              int* numActiveBlocks, dim3 grid_size,
                              int* block_vertex_offset, int* block_index_offset,
                              float3* vertices, int3* indices);
+__global__ void setGlobal();
 
 __device__ int getCubeidx(int3 pos, volatile int* shem);
 

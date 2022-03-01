@@ -4,6 +4,8 @@
 #include "getActiveBlocks.cuh"
 
 __constant__ int d_isoVal2;
+__device__ int my_block_count1_0 = 0;
+__device__ int my_block_count1_1 = 0;
 
 __device__ __inline__ int getActiveBlocks::warpReduceScan(int val, int laneid) {
 #pragma unroll
@@ -23,13 +25,18 @@ __global__ void getActiveBlocks::getActiveBlocks(int2* g_blockMinMax, int n,
   int wid = tid_block / WP_SIZE;
   int tid = tid_block + blockDim.x * bid;
 
+  __shared__ unsigned int my_blockId;
+  if (threadIdx.x == 0) my_blockId = atomicAdd(&my_block_count1_0, 1);
+
+  __syncthreads();
+
   __shared__ int bTestPerWarp[32];
 
-  // bool non_empty_block =
-  //    !(g_blockMinMax[tid].x != 0 & g_blockMinMax[tid].y != 0);
-
   bool non_empty_block =
-      (g_blockMinMax[tid].x < d_isoVal2 & g_blockMinMax[tid].y >= d_isoVal2);
+      (g_blockMinMax[tid].x != 0 && g_blockMinMax[tid].y != 0);
+
+  // bool non_empty_block =
+  //   (g_blockMinMax[tid].x < d_isoVal2 & g_blockMinMax[tid].y >= d_isoVal2);
 
   int bTest = non_empty_block;
   bTest = warpReduceScan(bTest, lane);
@@ -49,8 +56,17 @@ __global__ void getActiveBlocks::getActiveBlocks(int2* g_blockMinMax, int n,
   if (tid_block == 0) {
     int block_sum = bTestPerWarp[31];
 
-    for (int i = bid + 1; i < blockDim.x; i++)
+    do {
+    } while (atomicAdd(&my_block_count1_1, 0) < my_blockId);
+
+    for (int i = bid + 1; i < gridDim.x + 1; i++) {
       atomicAdd(numActiveBlocks + i, block_sum);
+      __threadfence();
+    }
+
+    atomicAdd(&my_block_count1_1, 1);
+    do {
+    } while (atomicAdd(&my_block_count1_1, 0) != my_block_count1_0);
   }
   __syncthreads();
 
