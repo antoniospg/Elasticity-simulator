@@ -58,12 +58,13 @@ int main() {
   // Setup Dear ImGui style
   ImGui::StyleColorsDark();
 
-  VoxelModel vm("mri.raw");
+  VoxelModel vm("sphere.dat");
   int isoVal = 0;
   Shader df("shaders/default.vert", "shaders/default.frag");
   glEnable(GL_DEPTH_TEST);
-  glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-  // glPolygonMode(GL_FRONT, GL_POLYGON);
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+   glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+  //glPolygonMode(GL_FRONT, GL_POLYGON);
 
   // render loop
   // -----------
@@ -136,9 +137,9 @@ int main() {
     df.setMat4("view", view);
     df.setMat4("model", model);
 
-    //Model m("./second.obj");
+    // Model m("./second.obj");
 
-    //m.render(df);
+    // m.render(df);
     vm.draw(df, isoVal);
 
     // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved

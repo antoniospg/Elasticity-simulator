@@ -1,6 +1,11 @@
 #ifndef CU_MESH_CUH
 #define CU_MESH_CUH
 
+struct vert3 {
+  float3 pos;
+  float3 normal;
+};
+
 class cuMesh {
  public:
   struct cudaGraphicsResource* positionsVBO_CUDA;
@@ -9,9 +14,8 @@ class cuMesh {
   int3* d_indices;
   uint VBO, EBO, VAO;
 
-  cuMesh(float3* vertices_in, int3* indices_in, size_t n_vertices,
+  cuMesh(vert3* vertices_in, int3* indices_in, size_t n_vertices,
          size_t n_indices, bool device_pointers);
-
 
   cuMesh();
 

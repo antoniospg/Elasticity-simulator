@@ -34,7 +34,7 @@ class VoxelModel {
   int numActiveBlk;
 
  public:
-  float3* d_vertices;
+  vert3* d_vertices;
   int3* d_indices;
 
   VoxelModel(string path) : vl(path), ct(vl.pData, vl.n_x, vl.n_y, vl.n_z) {
@@ -76,7 +76,7 @@ class VoxelModel {
                                             d_activeBlkNum, d_numActiveBlocks,
                                             grid_size2, block_size2, 0);
 
-    d_numActiveBlk = d_numActiveBlocks + grid_size2; 
+    d_numActiveBlk = d_numActiveBlocks + grid_size2;
     cudaMemcpy(&numActiveBlk, d_numActiveBlk, sizeof(int),
                cudaMemcpyDeviceToHost);
   }
@@ -94,8 +94,8 @@ class VoxelModel {
     if (d_indices != nullptr) cudaFree(d_indices);
 
     int2 nums = genTriangles::generateTrisWrapper(
-        ct.texObj, d_activeBlkNum, d_numActiveBlk, grid_size3, block_size3,
-        grid_size, isoVal, nxyz, &d_vertices, &d_indices);
+        ct.texObj, ct.texObjNormal, d_activeBlkNum, d_numActiveBlk, grid_size3,
+        block_size3, grid_size, isoVal, nxyz, &d_vertices, &d_indices);
 
     return nums;
   }
@@ -104,25 +104,21 @@ class VoxelModel {
     int2 nums = generate(isoVal);
 
 #ifdef DEBUG3
-    float3* h_vertices = new float3[nums.x];
+    vert3* h_vertices = new vert3[nums.x];
     int3* h_indices = new int3[nums.y];
-    cudaMemcpy(h_vertices, d_vertices, nums.x * sizeof(float3),
+    cudaMemcpy(h_vertices, d_vertices, nums.x * sizeof(vert3),
                cudaMemcpyDeviceToHost);
     cudaMemcpy(h_indices, d_indices, nums.y * sizeof(int3),
                cudaMemcpyDeviceToHost);
 
-    ofstream f_debug("debug.obj");
     for (size_t i = 0; i < nums.x; i++) {
-      f_debug << "v " << h_vertices[i].x << " " << h_vertices[i].y << " "
-           << h_vertices[i].z << " " << endl;
+      cout << "v " << h_vertices[i].pos.x << " " << h_vertices[i].pos.y << " "
+           << h_vertices[i].pos.z << " " << h_vertices[i].normal.x << " "
+           << h_vertices[i].normal.z << " " << h_vertices[i].normal.z << " "
+           << endl;
     }
-    f_debug << endl;
-    for (size_t i = 0; i < nums.y; i++) {
-      f_debug  << "f " << h_indices[i].x + 1 << " " << h_indices[i].y + 1 << " "
-           << h_indices[i].z + 1 << " " << endl;
-    }
-    f_debug.close();
-    exit(0);
+    cout << endl;
+    cout << "############" << endl;
 #endif
 
     if (nums.x <= 0 || nums.y <= 0) return;

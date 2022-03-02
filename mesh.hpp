@@ -16,6 +16,7 @@ using namespace std;
 
 struct Vertex {
   glm::vec3 pos;
+  glm::vec3 normal;
 
   Vertex(glm::vec3 pos) : pos(pos) {}
   Vertex(float x, float y, float z) : pos(x, y, z) {}
@@ -37,11 +38,16 @@ class Mesh {
   void setupMesh() {
     n_vertices = vertices.size();
     n_tris = indices.size() / 3;
-    cm = cuMesh((float3 *)vertices.data(), (int3 *)indices.data(),
+    cm = cuMesh((vert3 *)vertices.data(), (int3 *)indices.data(),
                 vertices.size(), indices.size() / 3, false);
 
+    // vertex Positions
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void *)0);
+    // vertex normals
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex),
+                          (void *)offsetof(Vertex, normal));
     glBindVertexArray(0);
   }
 
@@ -51,7 +57,7 @@ class Mesh {
     empty_mesh = false;
   }
 
-  Mesh(float3 *d_vertices_in, int3 *d_indices_in, size_t n_vertices,
+  Mesh(vert3 *d_vertices_in, int3 *d_indices_in, size_t n_vertices,
        size_t n_indices, bool device_pointers) {
     n_vertices = n_vertices;
     n_tris = n_indices;
@@ -59,8 +65,13 @@ class Mesh {
     cm = cuMesh(d_vertices_in, d_indices_in, n_vertices, n_indices,
                 device_pointers);
 
+    // vertex Positions
     glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(float3), (void *)0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void *)0);
+    // vertex normals
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex),
+                          (void *)offsetof(Vertex, normal));
     glBindVertexArray(0);
   }
 

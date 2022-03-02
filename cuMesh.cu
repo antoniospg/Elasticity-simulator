@@ -7,7 +7,7 @@
 
 using namespace std;
 
-cuMesh::cuMesh(float3* vertices, int3* indices, size_t n_vertices,
+cuMesh::cuMesh(vert3* vertices, int3* indices, size_t n_vertices,
                size_t n_indices, bool device_pointers) {
   glGenBuffers(1, &VBO);
   glGenBuffers(1, &EBO);
@@ -16,7 +16,7 @@ cuMesh::cuMesh(float3* vertices, int3* indices, size_t n_vertices,
   glBindVertexArray(VAO);
 
   glBindBuffer(GL_ARRAY_BUFFER, VBO);
-  uint size_VBO = n_vertices * sizeof(float3);
+  uint size_VBO = n_vertices * sizeof(vert3);
   glBufferData(GL_ARRAY_BUFFER, size_VBO, 0, GL_DYNAMIC_DRAW);
 
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
@@ -27,14 +27,14 @@ cuMesh::cuMesh(float3* vertices, int3* indices, size_t n_vertices,
   mapEBO();
 
   if (device_pointers) {
-    cudaMemcpy(d_vertices, vertices, n_vertices * sizeof(float3),
+    cudaMemcpy(d_vertices, vertices, n_vertices * sizeof(vert3),
                cudaMemcpyDeviceToDevice);
     cudaDeviceSynchronize();
     cudaMemcpy(d_indices, indices, n_indices * sizeof(uint3),
                cudaMemcpyDeviceToDevice);
     cudaDeviceSynchronize();
   } else {
-    cudaMemcpy(d_vertices, vertices, n_vertices * sizeof(float3),
+    cudaMemcpy(d_vertices, vertices, n_vertices * sizeof(vert3),
                cudaMemcpyHostToDevice);
     cudaMemcpy(d_indices, indices, n_indices * sizeof(uint3),
                cudaMemcpyHostToDevice);
