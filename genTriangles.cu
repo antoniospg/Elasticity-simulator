@@ -6,7 +6,7 @@
 #include "constants.h"
 #include "genTriangles.cuh"
 
-#define INF 1e12
+#define INF 1e5
 using namespace std;
 
 namespace cg = cooperative_groups;
@@ -55,8 +55,8 @@ __device__ int genTriangles::getCubeidx(int3 pos, volatile int* shem) {
         pos_offset[i].z < blockDim.z && shem[offsets[i]] < d_isoVal)
       cubeindex |= increment;
     // else if (pos_offset[i].x >= blockDim.x || pos_offset[i].y < 0 ||
-    //         pos_offset[i].z >= blockDim.z)
-    //  cubeindex |= increment;
+    //          pos_offset[i].z >= blockDim.z)
+    //   cubeindex |= (cubeindex & 1) * increment;
     increment *= 2;
   }
 
@@ -123,12 +123,13 @@ __device__ bool3 genTriangles::getVertex(int3 pos, bool3& active_edges,
     } else if ((check_offset[i].x >= blockDim.x || check_offset[i].y < 0 ||
                 check_offset[i].z >= blockDim.z) &&
                active_edges_array[i]) {
-      vertices[i] = lerpVertex(pos, pos_neigh[i], 0, INF);
-      // vertices[i] = {(float)pos_neigh[i].x, (float)pos_neigh[i].y,
-      //                (float)pos_neigh[i].z};
-      normals[i] = {(float)pos_neigh[i].x - pos.x,
-                    (float)pos.y - pos_neigh[i].y,
-                    (float)pos_neigh[i].z - pos.z};
+      if (i == 0) active_edges.x = 0;
+      if (i == 1) active_edges.y = 0;
+      if (i == 2) active_edges.z = 0;
+      // vertices[i] = lerpVertex(pos, pos_neigh[i], 0, INF);
+      // normals[i] = {(float)pos_neigh[i].x - pos.x,
+      //              (float)pos.y - pos_neigh[i].y,
+      //              (float)pos_neigh[i].z - pos.z};
     }
   }
 }
@@ -173,7 +174,8 @@ __device__ int genTriangles::getVertexOffset(int nums) {
 }
 
 __device__ int genTriangles::borrowVertex(int3 pos, int edge,
-                                          volatile int3* shem) {
+                                          volatile int3* vertices_block_id_shem,
+                                          volatile bool3* active_edges_shem) {
   int tid_block = threadIdx.x + blockDim.x * threadIdx.y +
                   blockDim.x * blockDim.y * threadIdx.z;
 
@@ -189,13 +191,16 @@ __device__ int genTriangles::borrowVertex(int3 pos, int edge,
 
   if (offset_pos.x < blockDim.x && offset_pos.y >= 0 &&
       offset_pos.z < blockDim.z) {
-    if (offset[3] == 0)
-      return shem[shem_id].x;
-    else if (offset[3] == 1)
-      return shem[shem_id].z;
-    else if (offset[3] == 2)
-      return shem[shem_id].y;
-    else
+    if (offset[3] == 0) {
+      if (active_edges_shem[shem_id].x == 0) return -1;
+      return vertices_block_id_shem[shem_id].x;
+    } else if (offset[3] == 1) {
+      if (active_edges_shem[shem_id].z == 0) return -1;
+      return vertices_block_id_shem[shem_id].z;
+    } else if (offset[3] == 2) {
+      if (active_edges_shem[shem_id].y == 0) return -1;
+      return vertices_block_id_shem[shem_id].y;
+    } else
       return -1;
   } else
     return -1;
@@ -213,9 +218,9 @@ __global__ void genTriangles::generateTris(
   int3 block_pos = int3{block_id % (int)grid_size.x,
                         (block_id / (int)grid_size.x) % ((int)grid_size.y),
                         block_id / ((int)grid_size.x * (int)grid_size.y)};
-  int3 pos = {threadIdx.x + block_pos.x * blockDim.x,
-              threadIdx.y + block_pos.y * blockDim.y,
-              threadIdx.z + block_pos.z * blockDim.z};
+  int3 pos = {threadIdx.x + block_pos.x * (blockDim.x - 1),
+              threadIdx.y + block_pos.y * (blockDim.y - 1),
+              threadIdx.z + block_pos.z * (blockDim.z - 1)};
 
   __shared__ unsigned int my_blockId;
   if (tid_block == 0) my_blockId = atomicAdd(&my_block_count3_0, 1);
@@ -229,7 +234,6 @@ __global__ void genTriangles::generateTris(
   float4 voxel_normal4 = tex3D<float4>(texNormal, pos.x, pos.y, pos.z);
   float3 voxel_normal3 = {voxel_normal4.x, voxel_normal4.y, voxel_normal4.z};
   voxel_normals[tid_block] = voxel_normal3;
-
 
   __syncthreads();
 
@@ -245,6 +249,10 @@ __global__ void genTriangles::generateTris(
 
   getVertex(pos, active_edge, voxels, voxel_normals, vertices_local,
             normals_local);
+
+  __shared__ bool3 active_edges_shem[1024];
+  active_edges_shem[tid_block] = active_edge;
+  __syncthreads();
 
   int vertex_count = 0;
   if (active_edge.x) vertex_count++;
@@ -266,10 +274,22 @@ __global__ void genTriangles::generateTris(
 
   int tris[18];
   int num_tris = 0;
-  for (size_t i = 0; i < 18 && d_triTable[cube_idx][i] != -1; i++) {
-    int tri_idx = borrowVertex(pos, d_triTable[cube_idx][i], vertices_block_id);
-    tris[num_tris] = tri_idx;
-    num_tris++;
+  for (size_t i = 0; i < 18 && d_triTable[cube_idx][i] != -1; i += 3) {
+    int local_tris[3], tri_count = 0;
+
+    for (size_t j = 0; j < 3; j++) {
+      int tri_idx = borrowVertex(pos, d_triTable[cube_idx][i + j],
+                                 vertices_block_id, active_edges_shem);
+      if (tri_idx < 0) break;
+      tri_count++;
+      local_tris[j] = tri_idx;
+    }
+    if (tri_count == 3) {
+      tris[num_tris] = local_tris[0];
+      tris[num_tris + 1] = local_tris[1];
+      tris[num_tris + 2] = local_tris[2];
+      num_tris += 3;
+    }
   }
   num_tris /= 3;
 

@@ -25,7 +25,9 @@ __device__ __inline__ int warpReduceScan(int val, int laneid);
 
 __device__ int getVertexOffset(int nums);
 
-__device__ int borrowVertex(int3 pos, int edge, volatile int3* shem);
+__device__ int borrowVertex(int3 pos, int edge,
+                            volatile int3* vertices_block_id_shem,
+                            volatile bool3* active_edges_shem);
 
 __global__ void generateTris(cudaTextureObject_t tex,
                              cudaTextureObject_t texNormal, int* activeBlocks,

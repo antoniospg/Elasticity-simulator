@@ -63,9 +63,9 @@ ComputeTex ::ComputeTex(int* h_data, int nx, int ny, int nz) {
   // Specify texture object parameters
   struct cudaTextureDesc texDesc;
   memset(&texDesc, 0, sizeof(texDesc));
-  texDesc.addressMode[0] = cudaAddressModeWrap;
-  texDesc.addressMode[1] = cudaAddressModeWrap;
-  texDesc.addressMode[2] = cudaAddressModeWrap;
+  texDesc.addressMode[0] = cudaAddressModeBorder;
+  texDesc.addressMode[1] = cudaAddressModeBorder;
+  texDesc.addressMode[2] = cudaAddressModeBorder;
   texDesc.filterMode = cudaFilterModePoint;
   texDesc.readMode = cudaReadModeElementType;
   texDesc.normalizedCoords = 0;

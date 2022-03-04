@@ -7,10 +7,10 @@
 using namespace std;
 
 int main() {
-  FILE* fp = fopen("./stagbeetle.dat", "rb");
+  FILE* fp = fopen("BostonTeapot.raw", "rb");
 
-  unsigned short vuSize[3];
-  fread((void*)vuSize, 3, sizeof(unsigned short), fp);
+  unsigned char vuSize[3];
+  fread((void*)vuSize, 3, sizeof(unsigned char), fp);
 
   int n_x = int(vuSize[0]);
   int n_y = int(vuSize[1]);
@@ -19,8 +19,8 @@ int main() {
   cout << n_x << " " << n_y << " " << n_z << endl;
 
   int uCount = int(vuSize[0]) * int(vuSize[1]) * int(vuSize[2]);
-  unsigned short* pData = new unsigned short[uCount];
-  fread((void*)pData, uCount, sizeof(unsigned short), fp);
+  unsigned char* pData = new unsigned char[uCount];
+  fread((void*)pData, uCount, sizeof(unsigned char), fp);
   fclose(fp);
 
   int max_power =

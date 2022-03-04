@@ -43,9 +43,9 @@ class VoxelModel {
 
     // First Kernel Launch
     block_size = {8, 8, 8};
-    grid_size = {(n_x + block_size.x - 1) / block_size.x,
-                 (n_y + block_size.y - 1) / block_size.y,
-                 (n_z + block_size.z - 1) / block_size.z};
+    grid_size = {(n_x + (block_size.x - 1) - 1) / (block_size.x - 1),
+                 (n_y + (block_size.y - 1) - 1) / (block_size.y - 1),
+                 (n_z + (block_size.z - 1) - 1) / (block_size.z - 1)};
     int num_blocks = grid_size.x * grid_size.y * grid_size.z;
 
     cudaMalloc(&d_blockMinMax, num_blocks * sizeof(int2));
@@ -58,6 +58,7 @@ class VoxelModel {
     cudaMemcpy(h_minmax, d_blockMinMax, num_blocks * sizeof(int2),
                cudaMemcpyDeviceToHost);
     for (size_t i = 0; i < num_blocks; i++) {
+      cout << h_minmax[i].x << " " << h_minmax[i].y << endl;
       if (h_minmax[i].x != 0 && h_minmax[i].y != 0) count++;
     }
     cout << "count : " << count << endl;
@@ -104,6 +105,7 @@ class VoxelModel {
     int2 nums = generate(isoVal);
 
 #ifdef DEBUG3
+    ofstream fp("debug.obj");
     vert3* h_vertices = new vert3[nums.x];
     int3* h_indices = new int3[nums.y];
     cudaMemcpy(h_vertices, d_vertices, nums.x * sizeof(vert3),
@@ -113,12 +115,17 @@ class VoxelModel {
 
     for (size_t i = 0; i < nums.x; i++) {
       cout << "v " << h_vertices[i].pos.x << " " << h_vertices[i].pos.y << " "
-           << h_vertices[i].pos.z << " " << h_vertices[i].normal.x << " "
-           << h_vertices[i].normal.z << " " << h_vertices[i].normal.z << " "
-           << endl;
+         << h_vertices[i].pos.z << " " << endl;
     }
+
     cout << endl;
-    cout << "############" << endl;
+
+    for (size_t i = 0; i < nums.y; i++) {
+      cout << "f " << h_indices[i].x + 1 << " " << h_indices[i].y + 1 << " "
+           << h_indices[i].z + 1 << " " << endl;
+    }
+    fp.close();
+    cout << "##################" << endl;
 #endif
 
     if (nums.x <= 0 || nums.y <= 0) return;

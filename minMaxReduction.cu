@@ -17,20 +17,20 @@ __device__ __inline__ int2 minMax::warpReduceMinMax(int2 val) {
   return val;
 }
 
-__global__ void minMax::blockReduceMinMax(cudaTextureObject_t tex, int n, int2* g_ans) {
+__global__ void minMax::blockReduceMinMax(cudaTextureObject_t tex, int n,
+                                          int2* g_ans) {
   int tid_block = (threadIdx.z * blockDim.y * blockDim.x +
                    threadIdx.y * blockDim.x + threadIdx.x);
   int bid = (blockIdx.z * gridDim.y * gridDim.x + blockIdx.y * gridDim.x +
              blockIdx.x);
   int tid = tid_block + (blockDim.x * blockDim.y * blockDim.z) * bid;
 
-
   int lane = tid_block % WP_SIZE;
   int wid = tid_block / WP_SIZE;
 
-  uint3 pos = {blockDim.x * blockIdx.x + threadIdx.x,
-               blockDim.y * blockIdx.y + threadIdx.y,
-               blockDim.z * blockIdx.z + threadIdx.z};
+  uint3 pos = {(blockDim.x - 1) * blockIdx.x + threadIdx.x,
+               (blockDim.y - 1) * blockIdx.y + threadIdx.y,
+               (blockDim.z - 1) * blockIdx.z + threadIdx.z};
 
   __shared__ int2 warpAns[32];
 
@@ -51,8 +51,9 @@ __global__ void minMax::blockReduceMinMax(cudaTextureObject_t tex, int n, int2* 
   if (tid_block == 0) g_ans[bid] = val;
 }
 
-void minMax::blockReduceMinMaxWrapper(cudaTextureObject_t tex, int n_z, int2* g_ans,
-                              dim3 grid_size, dim3 block_size) {
+void minMax::blockReduceMinMaxWrapper(cudaTextureObject_t tex, int n_z,
+                                      int2* g_ans, dim3 grid_size,
+                                      dim3 block_size) {
   blockReduceMinMax<<<grid_size, block_size>>>(tex, n_z, g_ans);
 }
 

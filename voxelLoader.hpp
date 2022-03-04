@@ -1,7 +1,7 @@
 #ifndef VOXELLOADER_HPP
 #define VOXELLOADER_HPP
 
-#define SECOND 
+#define FIRST 
 #include <stdio.h>
 
 #include <iostream>

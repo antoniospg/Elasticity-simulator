@@ -33,7 +33,7 @@ __global__ void getActiveBlocks::getActiveBlocks(int2* g_blockMinMax, int n,
   __shared__ int bTestPerWarp[32];
 
   bool non_empty_block =
-      (g_blockMinMax[tid].x != 0 && g_blockMinMax[tid].y != 0);
+      !(g_blockMinMax[tid].x == 0 && g_blockMinMax[tid].y == 0);
 
   // bool non_empty_block =
   //   (g_blockMinMax[tid].x < d_isoVal2 & g_blockMinMax[tid].y >= d_isoVal2);
