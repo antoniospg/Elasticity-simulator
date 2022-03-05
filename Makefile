@@ -2,10 +2,10 @@
 CUDA_OBJ = cuda.o
 
 # Input Names
-IMGUI_DIR = imgui
+IMGUI_DIR = include/imgui
 
-CUDA_FILES = computeTex.cu cuMesh.cu genTriangles.cu  minMaxReduction.cu getActiveBlocks.cu
-CPP_FILES = glad.c draw.cpp
+CUDA_FILES = src/kernels/computeTex.cu src/kernels/cuMesh.cu src/kernels/genTriangles.cu  src/kernels/minMaxReduction.cu src/kernels/getActiveBlocks.cu
+CPP_FILES = include/glad.c src/draw.cpp
 CPP_FILES += $(IMGUI_DIR)/imgui.cpp $(IMGUI_DIR)/imgui_demo.cpp $(IMGUI_DIR)/imgui_draw.cpp $(IMGUI_DIR)/imgui_tables.cpp $(IMGUI_DIR)/imgui_widgets.cpp
 CPP_FILES += $(IMGUI_DIR)/backends/imgui_impl_glfw.cpp $(IMGUI_DIR)/backends/imgui_impl_opengl3.cpp
 
@@ -58,7 +58,7 @@ OBJ_RUN = $(addprefix run-, $(notdir $(addsuffix .o, $(CPP_FILES))))
 all: run
 
 # Compile CUDA Source Files
-%.cu.o: %.cu
+%.cu.o: src/kernels/%.cu
 	$(NVCC) $(NVCC_FLAGS) $(NVCC_GENCODES) -c -o $@ $(NVCC_INCLUDE) $<
 
 cuda: $(CUDA_OBJ_FILES) $(CUDA_OBJ)
@@ -70,10 +70,10 @@ run: $(OBJ_RUN) $(CUDA_OBJ) $(CUDA_OBJ_FILES)
 	$(GPP) $(FLAGS) -o run $(INCLUDE) $^ $(LIBS) 
 
 # Compile C++ Source Files
-run-%.cpp.o: %.cpp  
+run-%.cpp.o: src/%.cpp  
 	$(GPP) $(FLAGS) -c -o $@ $(INCLUDE) $< 
 
-run-%.c.o: %.c  
+run-%.c.o: include/%.c  
 	$(GPP) $(FLAGS) -c -o $@ $(INCLUDE) $< 
 
 run-%.cpp.o:$(IMGUI_DIR)/%.cpp
