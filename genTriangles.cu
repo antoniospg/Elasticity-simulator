@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <cooperative_groups.h>
 #include <stdio.h>
 
@@ -5,6 +6,17 @@
 
 #include "constants.h"
 #include "genTriangles.cuh"
+
+#define gpuErrchk(ans) \
+  { gpuAssert((ans), __FILE__, __LINE__); }
+inline void gpuAssert(cudaError_t code, const char* file, int line,
+                      bool abort = true) {
+  if (code != cudaSuccess) {
+    fprintf(stderr, "GPUassert: %s %s %d\n", cudaGetErrorString(code), file,
+            line);
+    if (abort) exit(code);
+  }
+}
 
 #define INF 1e5
 using namespace std;
@@ -126,10 +138,6 @@ __device__ bool3 genTriangles::getVertex(int3 pos, bool3& active_edges,
       if (i == 0) active_edges.x = 0;
       if (i == 1) active_edges.y = 0;
       if (i == 2) active_edges.z = 0;
-      // vertices[i] = lerpVertex(pos, pos_neigh[i], 0, INF);
-      // normals[i] = {(float)pos_neigh[i].x - pos.x,
-      //              (float)pos.y - pos_neigh[i].y,
-      //              (float)pos_neigh[i].z - pos.z};
     }
   }
 }
@@ -297,45 +305,44 @@ __global__ void genTriangles::generateTris(
   int index_offset_next = index_offset;
   index_offset -= num_tris;
 
-  // Global Offset
+  // Global offsets
+  __shared__ int vertex_off;
+  __shared__ int index_off;
+
   if (tid_block == blockDim.x * blockDim.y * blockDim.z - 1) {
     int2 block_sum = {vertex_offset_next, index_offset_next};
 
-    for (int i = blockIdx.x + 1; i < gridDim.x + 1; i++) {
-      atomicAdd(block_vertex_offset + i, block_sum.x);
-      atomicAdd(block_index_offset + i, block_sum.y);
-      __threadfence();
-    }
+    vertex_off = atomicAdd(block_vertex_offset + gridDim.x, block_sum.x);
+    index_off = atomicAdd(block_index_offset + gridDim.x, block_sum.y);
+    // for (int i = blockIdx.x + 1; i < gridDim.x + 1; i++) {
+    //  atomicAdd(block_vertex_offset + i, block_sum.x);
+    //  atomicAdd(block_index_offset + i, block_sum.y);
+    //}
 
-    atomicAdd(&my_block_count3_1, 1);
-    do {
-    } while (atomicAdd(&my_block_count3_1, 0) != my_block_count3_0);
+    // atomicAdd(&my_block_count3_1, 1);
+    // do {
+    //  __threadfence();
+    //} while (atomicAdd(&my_block_count3_1, 0) != my_block_count3_0);
   }
   __syncthreads();
 
-  // Write vertices to global memory
-  int block_off = block_vertex_offset[blockIdx.x];
-
   if (active_edge.x) {
-    vertices[block_off + vertex_block_id.x - 1].pos = vertices_local[0];
-    vertices[block_off + vertex_block_id.x - 1].normal = normals_local[0];
+    vertices[vertex_off + vertex_block_id.x - 1].pos = vertices_local[0];
+    vertices[vertex_off + vertex_block_id.x - 1].normal = normals_local[0];
   }
   if (active_edge.y) {
-    vertices[block_off + vertex_block_id.y - 1].pos = vertices_local[1];
-    vertices[block_off + vertex_block_id.y - 1].normal = normals_local[1];
+    vertices[vertex_off + vertex_block_id.y - 1].pos = vertices_local[1];
+    vertices[vertex_off + vertex_block_id.y - 1].normal = normals_local[1];
   }
   if (active_edge.z) {
-    vertices[block_off + vertex_block_id.z - 1].pos = vertices_local[2];
-    vertices[block_off + vertex_block_id.z - 1].normal = normals_local[2];
+    vertices[vertex_off + vertex_block_id.z - 1].pos = vertices_local[2];
+    vertices[vertex_off + vertex_block_id.z - 1].normal = normals_local[2];
   }
 
   for (size_t i = 0; i < num_tris; i++) {
-    indices[index_offset + block_index_offset[blockIdx.x] + i].x =
-        block_off + tris[3 * i] - 1;
-    indices[index_offset + block_index_offset[blockIdx.x] + i].y =
-        block_off + tris[3 * i + 1] - 1;
-    indices[index_offset + block_index_offset[blockIdx.x] + i].z =
-        block_off + tris[3 * i + 2] - 1;
+    indices[index_offset + index_off + i].x = vertex_off + tris[3 * i] - 1;
+    indices[index_offset + index_off + i].y = vertex_off + tris[3 * i + 1] - 1;
+    indices[index_offset + index_off + i].z = vertex_off + tris[3 * i + 2] - 1;
   }
 }
 
@@ -347,32 +354,18 @@ __global__ void genTriangles::setGlobal() {
 int2 genTriangles::generateTrisWrapper(
     cudaTextureObject_t tex, cudaTextureObject_t texNormal, int* activeBlocks,
     int* numActiveBlocks, dim3 grid_size3, dim3 block_size3, dim3 grid_size,
-    int isoVal, uint3 nxyz, vert3** d_vertices_ref, int3** d_indices_ref) {
+    int isoVal, uint3 nxyz, int* d_block_vertex_offset,
+    int* d_block_index_offset, vert3* d_vertices, int3* d_indices) {
   cudaMemcpyToSymbol(d_isoVal, &isoVal, sizeof(int));
   cudaMemcpyToSymbol(d_neighbourMappingTable, neighbourMappingTable,
                      12 * 4 * sizeof(int));
   cudaMemcpyToSymbol(d_edgeTable, edgeTable, 256 * sizeof(int));
   cudaMemcpyToSymbol(d_triTable, triTable, 256 * 16 * sizeof(int));
 
-  // Global offset
-  int* d_block_vertex_offset;
-  int* d_block_index_offset;
-
-  cudaMalloc(&d_block_vertex_offset, (grid_size3.x + 1) * sizeof(int));
-  cudaMalloc(&d_block_index_offset, (grid_size3.x + 1) * sizeof(int));
   cudaMemset(d_block_vertex_offset, 0, (grid_size3.x + 1) * sizeof(int));
   cudaMemset(d_block_index_offset, 0, (grid_size3.x + 1) * sizeof(int));
 
-  // store vertices / indices
-  vert3* d_vertices;
-  int3* d_indices;
-  cudaMalloc(&d_vertices, nxyz.x * nxyz.y * nxyz.z * sizeof(vert3));
-  cudaMalloc(&d_indices, nxyz.x * nxyz.y * nxyz.z * sizeof(int3));
-  cudaMemset(d_vertices, 0, nxyz.x * nxyz.y * nxyz.z * sizeof(vert3));
-  cudaMemset(d_indices, 0, nxyz.x * nxyz.y * nxyz.z * sizeof(int3));
-
   setGlobal<<<1, 1>>>();
-  cudaDeviceSynchronize();
 
   generateTris<<<grid_size3, block_size3>>>(
       tex, texNormal, activeBlocks, numActiveBlocks, grid_size,
@@ -383,12 +376,6 @@ int2 genTriangles::generateTrisWrapper(
              cudaMemcpyDeviceToHost);
   cudaMemcpy(&num_indices, d_block_index_offset + grid_size3.x, sizeof(int),
              cudaMemcpyDeviceToHost);
-
-  *d_vertices_ref = d_vertices;
-  *d_indices_ref = d_indices;
-
-  cudaFree(d_block_vertex_offset);
-  cudaFree(d_block_index_offset);
 
   return int2{num_vertices, num_indices};
 }

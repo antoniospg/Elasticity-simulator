@@ -5,7 +5,7 @@ CUDA_OBJ = cuda.o
 IMGUI_DIR = imgui
 
 CUDA_FILES = computeTex.cu cuMesh.cu genTriangles.cu  minMaxReduction.cu getActiveBlocks.cu
-CPP_FILES = draw.cpp
+CPP_FILES = glad.c draw.cpp
 CPP_FILES += $(IMGUI_DIR)/imgui.cpp $(IMGUI_DIR)/imgui_demo.cpp $(IMGUI_DIR)/imgui_draw.cpp $(IMGUI_DIR)/imgui_tables.cpp $(IMGUI_DIR)/imgui_widgets.cpp
 CPP_FILES += $(IMGUI_DIR)/backends/imgui_impl_glfw.cpp $(IMGUI_DIR)/backends/imgui_impl_opengl3.cpp
 
@@ -43,9 +43,9 @@ CUDA_LINK_FLAGS = -dlink -Wno-deprecated-gpu-targets
 
 # C++ Compiler and Flags
 GPP = g++
-FLAGS = -g -Wall -D_REENTRANT -std=c++0x -pthread
+FLAGS = -g -Wall -D_REENTRANT -std=c++0x -pthread -fPIE
 INCLUDE = -I$(CUDA_INC_PATH) -I$(IMGUI_DIR) -I$(IMGUI_DIR)/backends
-LIBS = -L$(CUDA_LIB_PATH) -lcudart glad.so libassimp.so -lGL -lGLU -lGLEW -lglfw -lm -ldl
+LIBS = -L$(CUDA_LIB_PATH) -lcudart libassimp.so -lGL -lGLU -lGLEW -lglfw -lm -ldl
 
 # ------------------------------------------------------------------------------
 # Make Rules (Lab 3 specific)
@@ -71,6 +71,9 @@ run: $(OBJ_RUN) $(CUDA_OBJ) $(CUDA_OBJ_FILES)
 
 # Compile C++ Source Files
 run-%.cpp.o: %.cpp  
+	$(GPP) $(FLAGS) -c -o $@ $(INCLUDE) $< 
+
+run-%.c.o: %.c  
 	$(GPP) $(FLAGS) -c -o $@ $(INCLUDE) $< 
 
 run-%.cpp.o:$(IMGUI_DIR)/%.cpp

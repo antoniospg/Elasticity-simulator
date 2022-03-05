@@ -33,10 +33,18 @@ class VoxelModel {
   int* d_numActiveBlocks;
   int numActiveBlk;
 
- public:
+  dim3 block_size3;
+  dim3 grid_size3;
+  uint3 nxyz;
+  // Global offset
+  int* d_block_vertex_offset;
+  int* d_block_index_offset;
+
+  // store vertices / indices
   vert3* d_vertices;
   int3* d_indices;
 
+ public:
   VoxelModel(string path) : vl(path), ct(vl.pData, vl.n_x, vl.n_y, vl.n_z) {
     n_x = vl.n_x, n_y = vl.n_y, n_z = vl.n_z;
     uint n = n_x * n_y * n_z;
@@ -80,23 +88,27 @@ class VoxelModel {
     d_numActiveBlk = d_numActiveBlocks + grid_size2;
     cudaMemcpy(&numActiveBlk, d_numActiveBlk, sizeof(int),
                cudaMemcpyDeviceToHost);
+
+    // Third Kernel params
+    block_size3 = block_size;
+    grid_size3 = {numActiveBlk};
+    nxyz = uint3{n_x, n_y, n_z};
+
+    cudaMalloc(&d_block_vertex_offset, (grid_size3.x + 1) * sizeof(int));
+    cudaMalloc(&d_block_index_offset, (grid_size3.x + 1) * sizeof(int));
+
+    cudaMalloc(&d_vertices, nxyz.x * nxyz.y * nxyz.z * sizeof(vert3));
+    cudaMalloc(&d_indices, nxyz.x * nxyz.y * nxyz.z * sizeof(int3));
   }
 
   int2 generate(int isoVal) {
     int num_blocks = grid_size.x * grid_size.y * grid_size.z;
 
     // Third Kernel Launch
-    dim3 block_size3 = block_size;
-    int num_blocks3 = block_size3.x * block_size.y + block_size.z;
-    dim3 grid_size3 = {numActiveBlk};
-    uint3 nxyz = uint3{n_x, n_y, n_z};
-
-    if (d_vertices != nullptr) cudaFree(d_vertices);
-    if (d_indices != nullptr) cudaFree(d_indices);
-
     int2 nums = genTriangles::generateTrisWrapper(
         ct.texObj, ct.texObjNormal, d_activeBlkNum, d_numActiveBlk, grid_size3,
-        block_size3, grid_size, isoVal, nxyz, &d_vertices, &d_indices);
+        block_size3, grid_size, isoVal, nxyz, d_block_vertex_offset,
+        d_block_index_offset, d_vertices, d_indices);
 
     return nums;
   }
@@ -115,7 +127,7 @@ class VoxelModel {
 
     for (size_t i = 0; i < nums.x; i++) {
       cout << "v " << h_vertices[i].pos.x << " " << h_vertices[i].pos.y << " "
-         << h_vertices[i].pos.z << " " << endl;
+           << h_vertices[i].pos.z << " " << endl;
     }
 
     cout << endl;
@@ -138,6 +150,10 @@ class VoxelModel {
     cudaFree(d_blockMinMax);
     cudaFree(d_numActiveBlocks);
     cudaFree(d_activeBlkNum);
+    cudaFree(d_block_vertex_offset);
+    cudaFree(d_block_index_offset);
+    cudaFree(d_vertices);
+    cudaFree(d_indices);
   }
 };
 

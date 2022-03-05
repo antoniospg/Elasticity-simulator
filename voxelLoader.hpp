@@ -26,9 +26,9 @@ class VoxelLoader {
     // n_x = vuSize[0];
     // n_y = vuSize[1];
     // n_z = vuSize[2];
-    n_x = 200;
-    n_y = 160;
-    n_z = 160;
+    n_x = 256;
+    n_y = 256;
+    n_z = 256;
 
     int uCount = n_x * n_z * n_z;
     pData = new int[uCount];

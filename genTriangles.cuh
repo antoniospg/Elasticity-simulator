@@ -41,7 +41,8 @@ __device__ int getCubeidx(int3 pos, volatile int* shem);
 int2 generateTrisWrapper(cudaTextureObject_t tex, cudaTextureObject_t texNormal,
                          int* activeBlocks, int* numActiveBlocks,
                          dim3 grid_size3, dim3 block_size3, dim3 grid_size,
-                         int isoVal, uint3 nxyz, vert3** d_vertices_ref,
-                         int3** d_indices_ref);
+                         int isoVal, uint3 nxyz, int* d_block_vertex_offset,
+                         int* d_block_index_offset, vert3* d_vertices_ref,
+                         int3* d_indices_ref);
 };  // namespace genTriangles
 #endif
