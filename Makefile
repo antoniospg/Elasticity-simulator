@@ -45,7 +45,7 @@ CUDA_LINK_FLAGS = -dlink -Wno-deprecated-gpu-targets
 GPP = g++
 FLAGS = -g -Wall -D_REENTRANT -std=c++0x -pthread -fPIE
 INCLUDE = -I$(CUDA_INC_PATH) -I$(IMGUI_DIR) -I$(IMGUI_DIR)/backends
-LIBS = -L$(CUDA_LIB_PATH) -lcudart libassimp.so -lGL -lGLU -lGLEW -lglfw -lm -ldl
+LIBS = -L$(CUDA_LIB_PATH) -lcudart -lGL -lGLU -lGLEW -lglfw -lm -ldl
 
 # ------------------------------------------------------------------------------
 # Make Rules (Lab 3 specific)
